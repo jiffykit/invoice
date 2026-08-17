@@ -1,0 +1,2516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Guided Invoice Generator</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg: #f8fafc;
+      --border: #cbd5e1;
+      --text: #0f172a;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      margin: 0;
+      background-color: #cbd5e1;
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .app-container {
+      display: flex;
+      width: 100%;
+      min-height: 100vh;
+      position: relative;
+    }
+
+    /* Sidebar / Control Panel Layout */
+    .sidebar {
+      width: 480px;
+      min-width: 320px;
+      max-width: 800px;
+      flex-shrink: 0;
+      background: white;
+      padding: 20px;
+      border-right: 1px solid var(--border);
+      height: 100vh;
+      overflow-y: auto;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+      position: relative;
+    }
+
+    details.sidebar-section {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 12px;
+      background: #f8fafc;
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+
+    details.sidebar-section[open] {
+      background: #ffffff;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+
+    details.sidebar-section summary {
+      padding: 10px 14px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 0.92rem;
+      color: #1e293b;
+      user-select: none;
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f1f5f9;
+      border-bottom: 1px solid transparent;
+    }
+
+    details.sidebar-section[open] summary {
+      color: var(--primary);
+      border-bottom-color: var(--border);
+      background: #e2e8f0;
+    }
+
+    details.sidebar-section summary::-webkit-details-marker {
+      display: none;
+    }
+
+    details.sidebar-section summary::after {
+      content: 'v';
+      font-size: 0.7rem;
+      transition: transform 0.2s ease;
+      color: #64748b;
+    }
+
+    details.sidebar-section[open] summary::after {
+      transform: rotate(180deg);
+    }
+
+    .sidebar-content {
+      padding: 12px;
+    }
+
+    /* Resizer handle for desktop sidebar */
+    .resizer {
+      width: 6px;
+      background: #cbd5e1;
+      cursor: col-resize;
+      height: 100vh;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      transition: background 0.15s;
+      flex-shrink: 0;
+    }
+    .resizer:hover, .resizer.dragging {
+      background: var(--primary);
+    }
+
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; color: #475569; }
+    
+    .form-group input:not([type="checkbox"]), .form-group textarea, .form-group select {
+      width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.88rem;
+      background-color: #fff; appearance: none; -webkit-appearance: none; min-width: 0;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    }
+
+    .form-group input[type="checkbox"] {
+      appearance: auto;
+      -webkit-appearance: checkbox;
+      cursor: pointer;
+    }
+
+    .form-group input.input-error {
+      border-color: #ef4444 !important;
+      background-color: #fef2f2 !important;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important;
+    }
+
+    ::placeholder { color: #94a3b8; opacity: 1; }
+
+    .row-2, .row-3 { display: flex; gap: 8px; margin-bottom: 10px; }
+    .row-2 > * { flex: 1; min-width: 0; }
+    .row-3 > * { flex: 1; min-width: 0; }
+
+    .row-4 {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr 1fr auto;
+      gap: 6px;
+      margin-bottom: 10px;
+      align-items: flex-end;
+    }
+    .row-4 input { min-width: 0; width: 100%; }
+
+    .btn {
+      padding: 10px 14px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.88rem; transition: background 0.15s;
+      display: inline-flex; align-items: center; justify-content: center; text-align: center; text-decoration: none;
+    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-secondary { background: #64748b; color: white; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-success { background: #10b981; color: white; }
+    .btn-warning { background: #f59e0b; color: white; }
+    .btn-email { background: #0284c7; color: white; width: 100%; padding: 12px; font-size: 0.95rem; }
+    .btn-wizard-launch { background: #7c3aed; color: white; width: 100%; padding: 14px; font-size: 1rem; margin-bottom: 15px; box-shadow: 0 4px 6px -1px rgba(124, 58, 237, 0.3); }
+
+    .payment-buttons-wrapper {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .payment-btn {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 8px !important;
+      padding: 10px 18px !important;
+      border-radius: 24px !important;
+      font-weight: 700 !important;
+      font-size: 0.88rem !important;
+      text-decoration: none !important;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.15) !important;
+      transition: all 0.15s ease !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      border: none !important;
+      line-height: 1.2 !important;
+    }
+
+    .payment-btn-paypal { background-color: #0070ba !important; color: #ffffff !important; }
+    .payment-btn-paypal:hover { background-color: #005ea6 !important; }
+    .payment-btn-interac { background-color: #00838f !important; color: #ffffff !important; }
+    .payment-btn-interac:hover { background-color: #006064 !important; }
+    .payment-btn-custom { background-color: #2563eb !important; color: #ffffff !important; }
+
+    .wizard-overlay {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px);
+      display: flex; justify-content: center; align-items: center; z-index: 2000;
+      padding: 12px;
+    }
+
+    .wizard-card {
+      background: white; border-radius: 12px; width: 560px; max-width: 100%;
+      padding: 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3);
+      display: flex; flex-direction: column; max-height: 92vh; overflow-y: auto; position: relative;
+    }
+
+    .wizard-header { margin-bottom: 16px; text-align: center; }
+    .wizard-header h2 { margin: 0 0 6px 0; color: var(--primary); font-size: 1.35rem; }
+    .wizard-header p { margin: 0; font-size: 0.85rem; color: #64748b; }
+
+    .wizard-progress {
+      display: flex; justify-content: space-between; margin-bottom: 20px; position: relative; padding: 0 8px;
+    }
+    .wizard-progress::before {
+      content: ''; position: absolute; top: 50%; left: 15px; right: 15px; height: 2px; background: #e2e8f0; z-index: 1; transform: translateY(-50%);
+    }
+    .progress-step {
+      width: 28px; height: 28px; border-radius: 50%; background: #e2e8f0; color: #64748b;
+      display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: bold; z-index: 2; position: relative;
+    }
+    .progress-step.active { background: var(--primary); color: white; }
+    .progress-step.completed { background: #10b981; color: white; }
+
+    .wizard-step-content { display: none; }
+    .wizard-step-content.active { display: block; }
+
+    .wizard-choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
+    .wizard-choice-card {
+      border: 2px solid var(--border); border-radius: 8px; padding: 14px; text-align: center;
+      cursor: pointer; transition: all 0.2s; background: #f8fafc;
+    }
+    .wizard-choice-card:hover, .wizard-choice-card.selected {
+      border-color: var(--primary); background: #eff6ff; transform: translateY(-2px);
+    }
+    .wizard-choice-card h4 { margin: 0 0 4px 0; color: var(--text); font-size: 0.95rem; }
+    .wizard-choice-card p { margin: 0; font-size: 0.75rem; color: #64748b; }
+
+    .wizard-actions {
+      display: flex; justify-content: space-between; margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--border); gap: 8px;
+    }
+
+    .item-block {
+      border: 1px solid var(--border); background: #f8fafc; padding: 10px; border-radius: 6px; margin-bottom: 10px; position: relative;
+    }
+    .item-block .remove-btn {
+      position: absolute; top: 6px; right: 6px; background: #ef4444; color: white; border: none;
+      border-radius: 50%; width: 22px; height: 22px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+
+    .calendar-container { margin-top: 10px; border: 1px solid var(--border); border-radius: 6px; padding: 8px; background: #fafafa; }
+    .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: bold; font-size: 0.9rem; }
+    .calendar-header button { background: white; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; padding: 4px 10px; font-size: 0.9rem; }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; text-align: center; font-size: 0.8rem; }
+    .calendar-day-head { font-weight: bold; color: #64748b; padding-bottom: 2px; }
+    .calendar-day {
+      padding: 6px 2px; background: white; border: 1px solid #e2e8f0; border-radius: 4px; cursor: pointer; user-select: none;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 38px; position: relative;
+    }
+    .calendar-day.selected { background: var(--primary); color: white; font-weight: bold; border-color: var(--primary); }
+    .calendar-day.has-custom { border: 2px solid #2563eb; }
+    .calendar-day .day-hours-badge { font-size: 0.65rem; margin-top: 2px; background: rgba(255,255,255,0.25); padding: 1px 3px; border-radius: 3px; }
+    .calendar-day:not(.selected) .day-hours-badge { background: #e2e8f0; color: #1e293b; }
+    .calendar-day.empty { background: transparent; border: none; cursor: default; }
+
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); display: flex; justify-content: center; align-items: center; z-index: 3000; padding: 12px; }
+    .modal-card { background: white; border-radius: 8px; width: 520px; max-width: 100%; padding: 18px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); max-height: 90vh; display: flex; flex-direction: column; }
+    
+    .timeline-container { 
+      overflow-y: auto; 
+      max-height: 320px; 
+      border: 1px solid var(--border); 
+      border-radius: 6px; 
+      padding: 8px; 
+      background: #fafafa; 
+      touch-action: pan-y; 
+      -webkit-overflow-scrolling: touch; 
+      position: relative;
+    }
+    .time-row { display: flex; align-items: center; margin-bottom: 4px; font-size: 0.75rem; }
+    .time-label { width: 65px; font-weight: 600; color: #475569; text-align: right; padding-right: 8px; flex-shrink: 0; }
+    .time-slots-group { display: flex; flex: 1; gap: 2px; }
+    .time-slot { flex: 1; height: 28px; background: #e2e8f0; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: #64748b; cursor: pointer; user-select: none; }
+    .time-slot.active { background: var(--primary); color: white; font-weight: bold; }
+
+    /* Preview Output Document Container */
+    .preview-container {
+      flex: 1; padding: 30px; display: flex; flex-direction: column; align-items: center; overflow-y: auto; background-color: #cbd5e1;
+    }
+
+    .chip-palette-wrapper { width: 100%; max-width: 8.5in; margin-bottom: 16px; }
+    .chip-palette-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .chip-palette-title { font-weight: bold; font-size: 0.85rem; color: #334155; display: flex; align-items: center; gap: 6px; }
+    .btn-add-chip { background: #3b82f6; color: white; border: none; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; cursor: pointer; }
+    .btn-add-chip:hover { background: #2563eb; }
+    
+    .chip-palette {
+      display: flex; flex-wrap: wrap; gap: 8px; min-height: 48px; padding: 10px; background: rgba(255, 255, 255, 0.85);
+      border-radius: 8px; border: 1px dashed #94a3b8; align-items: center; backdrop-filter: blur(4px);
+    }
+    .item-chip {
+      background: #2563eb; color: white; padding: 6px 10px; border-radius: 16px; font-size: 0.8rem; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; user-select: none; transition: all 0.15s ease;
+    }
+    .item-chip:hover { background: #1d4ed8; transform: translateY(-1px); box-shadow: 0 4px 6px rgba(0,0,0,0.15); }
+    .item-chip .chip-price { background: rgba(255,255,255,0.25); padding: 2px 6px; border-radius: 10px; font-size: 0.75rem; }
+    .item-chip .chip-delete { margin-left: 2px; opacity: 0.6; cursor: pointer; font-weight: bold; padding: 0 4px; border-radius: 50%; font-size: 0.75rem; }
+    .item-chip .chip-delete:hover { opacity: 1; background: rgba(239, 68, 68, 0.8); color: white; }
+    
+    .invoice-paper {
+      background: white; width: 100%; max-width: 8.5in; min-height: 11in; padding: 0.8in;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15); display: flex; flex-direction: column;
+      justify-content: space-between; box-sizing: border-box; font-size: 13px; line-height: 1.4;
+      border-radius: 4px; position: relative; overflow: hidden;
+    }
+
+    .paid-stamp {
+      position: absolute; top: 18%; right: 12%; border: 6px solid #dc2626; color: #dc2626; font-size: 3rem; font-weight: 900;
+      text-transform: uppercase; padding: 8px 24px; border-radius: 12px; letter-spacing: 6px; transform: rotate(-18deg); opacity: 0.88;
+      user-select: none; pointer-events: none; box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.2); text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.15); z-index: 10;
+    }
+
+    .inv-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; }
+    .inv-sender { font-size: 1rem; }
+    .header-logo-img { max-height: 70px; max-width: 220px; object-fit: contain; margin-bottom: 6px; }
+    .inv-number-title { text-align: right; font-size: 1.1rem; }
+    .inv-client { margin-bottom: 25px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
+    .inv-client-address { font-weight: normal; text-transform: none; white-space: pre-line; }
+
+    .table-responsive { width: 100%; overflow-x: auto; margin-bottom: 20px; }
+    table.inv-table { width: 100%; border-collapse: collapse; min-width: 480px; }
+    table.inv-table th { border-top: 1px solid #000; border-bottom: 1px solid #000; text-align: left; padding: 6px 4px; font-size: 0.75rem; font-weight: bold; }
+    table.inv-table td { padding: 10px 4px; vertical-align: top; font-size: 0.90rem; }
+
+    .col-date { width: 15%; } .col-desc { width: 33%; } .col-qty { width: 10%; text-align: right; }
+    .col-price { width: 12%; text-align: right; } .col-disc { width: 10%; text-align: right; }
+    .col-tax { width: 8%; text-align: center; } .col-total { width: 12%; text-align: right; }
+    table.inv-table th.col-qty, table.inv-table th.col-price, table.inv-table th.col-disc, table.inv-table th.col-total { text-align: right; }
+    table.inv-table th.col-tax { text-align: center; }
+
+    .totals-box { width: 280px; margin-left: auto; margin-bottom: 30px; }
+    .totals-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.95rem; }
+    .totals-row.discount-row { color: #059669; }
+    .grand-total-row { display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: bold; margin-top: 8px; padding-top: 8px; border-top: 2px solid #000; }
+
+    .inv-footer { font-size: 0.85rem; line-height: 1.5; clear: both; }
+    .inv-footer-title { font-weight: bold; text-transform: uppercase; margin-bottom: 3px; }
+    .inv-footer-block { margin-bottom: 15px; }
+
+    .qr-container { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 10px; }
+    .qr-img { max-width: 130px; max-height: 130px; object-fit: contain; border: 1px solid var(--border); border-radius: 4px; padding: 4px; }
+
+    .reminder-item {
+      border: 1px solid var(--border); background: #f8fafc; border-radius: 8px; padding: 12px; margin-bottom: 10px;
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    }
+    .reminder-item-info { flex: 1; }
+    .reminder-item-info strong { font-size: 0.95rem; color: #1e293b; }
+    .reminder-item-info p { margin: 2px 0 0 0; font-size: 0.8rem; color: #64748b; }
+    .reminder-item-actions { display: flex; gap: 6px; }
+
+    @media screen and (max-width: 820px), screen and (orientation: portrait) {
+      .app-container { flex-direction: column; height: auto; min-height: auto; }
+      .resizer { display: none; }
+      .sidebar { width: 100% !important; height: auto; border-right: none; border-bottom: 2px solid var(--border); padding: 16px; box-shadow: none; }
+      .preview-container { width: 100%; padding: 12px 8px 30px 8px; background-color: #94a3b8; overflow-x: hidden; }
+      .invoice-paper { padding: 20px 16px; min-height: auto; font-size: 11px; }
+      .paid-stamp { font-size: 2rem; padding: 4px 14px; right: 8%; top: 15%; }
+      .inv-header { flex-direction: column; gap: 10px; }
+      .inv-number-title { text-align: left; }
+      .totals-box { width: 100%; }
+      .wizard-card { padding: 18px 14px; width: 100%; border-radius: 10px; }
+      .wizard-header h2 { font-size: 1.2rem; }
+      .wizard-choice-grid { grid-template-columns: 1fr; gap: 8px; }
+      .row-3 { display: flex; flex-direction: column; gap: 4px; }
+      .row-3 > * { margin-bottom: 4px; }
+      .row-4 {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 4px;
+        margin-bottom: 10px;
+      }
+      .row-4 > * { min-width: 0; margin-bottom: 0; }
+      .row-4 .form-group label {
+        font-size: 0.7rem;
+        white-space: nowrap;
+      }
+      .row-4 input:not([type="checkbox"]) {
+        padding: 8px 5px;
+        font-size: 0.82rem;
+      }
+      .wizard-actions { flex-direction: column-reverse; gap: 10px; }
+      .wizard-actions > * { width: 100%; }
+      .wizard-actions div { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+      .wizard-actions .btn { width: 100%; padding: 12px; }
+    }
+
+    @page { size: letter portrait; margin: 0.6in; }
+    @media print {
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      html, body { background: #ffffff !important; color: #000000 !important; margin: 0 !important; padding: 0 !important; height: auto !important; }
+      .no-print, .sidebar, .resizer, .wizard-overlay, .modal-overlay, .chip-palette-wrapper { display: none !important; }
+      .app-container { display: block !important; width: 100% !important; min-height: 0 !important; }
+      .preview-container { display: block !important; padding: 0 !important; margin: 0 !important; width: 100% !important; background: transparent !important; overflow: visible !important; }
+      .invoice-paper {
+        display: flex !important; flex-direction: column !important;
+        width: 100% !important; max-width: none !important; min-height: 9.8in !important;
+        padding: 0 !important; margin: 0 !important;
+        box-shadow: none !important; border-radius: 0 !important; overflow: visible !important;
+        font-size: 13px !important; line-height: 1.4 !important;
+      }
+      .inv-header { flex-direction: row !important; align-items: flex-start !important; }
+      .inv-number-title { text-align: right !important; }
+      .totals-box { width: 280px !important; margin-left: auto !important; }
+      table.inv-table { min-width: 0 !important; width: 100% !important; }
+      .payment-btn, .payment-btn-paypal, .payment-btn-interac, .payment-btn-custom {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color: #ffffff !important;
+        text-decoration: none !important;
+      }
+    }
+
+    .app-toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%) translateY(16px);
+      background: #0f172a;
+      color: #fff;
+      padding: 12px 18px;
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      font-size: 0.9rem;
+      font-weight: 600;
+      z-index: 5000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      max-width: calc(100vw - 32px);
+      text-align: center;
+    }
+    .app-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    @media screen and (max-width: 820px), screen and (orientation: portrait) {
+      .app-toast { bottom: 16px; font-size: 0.82rem; padding: 11px 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="appToast" class="app-toast" role="status" aria-live="polite"></div>
+
+<div class="app-container">
+  
+  <div class="sidebar no-print" id="sidebarPanel">
+    <button class="btn btn-wizard-launch" onclick="openWizard(1)">Run Setup Wizard</button>
+
+    <details class="sidebar-section">
+      <summary>1. Saved Invoices & Payment Status</summary>
+      <div class="sidebar-content">
+        <div class="form-group">
+          <select id="historySelect" onchange="loadInvoiceFromHistory()">
+            <option value="">-- Select Saved Invoice --</option>
+          </select>
+        </div>
+        
+        <div class="form-group" style="background:#f8fafc; padding:10px; border:1px solid var(--border); border-radius:6px;">
+          <label style="display:flex; align-items:center; font-size:0.9rem; font-weight:bold; cursor:pointer; color:#dc2626;">
+            <input type="checkbox" id="inputIsPaid" onchange="togglePaidStatus()" style="width:18px; height:18px; margin-right:8px; cursor:pointer;">
+            Mark Invoice as PAID
+          </label>
+        </div>
+
+        <div class="row-2">
+          <button class="btn btn-secondary" onclick="saveCurrentInvoice(true)">Save / Update</button>
+          <button class="btn btn-danger" onclick="deleteInvoiceFromHistory()">Delete</button>
+        </div>
+      </div>
+    </details>
+
+    <details class="sidebar-section">
+      <summary>2. Regional, Tax & Reminder Settings</summary>
+      <div class="sidebar-content">
+        <div class="row-3">
+          <div class="form-group">
+            <label>Currency</label>
+            <select id="inputCurrency" onchange="updateInvoice()">
+              <option value="$">USD / CAD ($)</option>
+              <option value="£">GBP (£)</option>
+              <option value="€">EUR (€)</option>
+              <option value="¥">JPY (¥)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Tax Name</label>
+            <input type="text" id="inputTaxName" placeholder="HST, VAT" oninput="updateInvoice()">
+          </div>
+          <div class="form-group">
+            <label>Tax Rate %</label>
+            <input type="number" step="0.1" id="inputTaxRate" placeholder="13" max="100" maxlength="5" oninput="updateInvoice()">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Unpaid Reminder Threshold (Days Overdue)</label>
+          <input type="number" id="inputReminderDays" value="7" min="1" max="90" onchange="saveReminderSettings()" placeholder="Default 7 days">
+        </div>
+      </div>
+    </details>
+
+    <details class="sidebar-section">
+      <summary>3. Client & Branding</summary>
+      <div class="sidebar-content">
+        <div class="form-group">
+          <label>Header Type</label>
+          <select id="headerMode" onchange="toggleHeaderMode()">
+            <option value="text">Text Header</option>
+            <option value="logo">Image Logo (JPG, PNG, GIF)</option>
+          </select>
+        </div>
+
+        <div id="textHeaderControls">
+          <div class="form-group">
+            <label>Your Name / Business Name</label>
+            <input type="text" id="inputSenderName" list="bizNameList" placeholder="Your Name / Business Name" oninput="saveBizName(this.value); updateInvoice()">
+            <datalist id="bizNameList"></datalist>
+          </div>
+          <div class="row-3">
+            <div class="form-group">
+              <label>Font</label>
+              <select id="headerFont" onchange="updateInvoice()">
+                <option value="Arial, sans-serif">Arial</option>
+                <option value="'Helvetica Neue', Helvetica, sans-serif">Helvetica</option>
+                <option value="'Times New Roman', Times, serif">Times New Roman</option>
+                <option value="Georgia, serif">Georgia</option>
+                <option value="'Courier New', Courier, monospace">Courier New</option>
+                <option value="Impact, sans-serif">Impact</option>
+                <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Size (px)</label>
+              <input type="number" id="headerFontSize" value="18" min="10" max="48" oninput="updateInvoice()">
+            </div>
+            <div class="form-group">
+              <label>Color</label>
+              <input type="color" id="headerColor" value="#0f172a" oninput="updateInvoice()" style="height:38px; padding:2px; cursor:pointer;">
+            </div>
+          </div>
+        </div>
+
+        <div id="logoHeaderControls" style="display:none;">
+          <div class="form-group">
+            <label>Upload Logo Image (JPG, GIF, PNG, WebP)</label>
+            <input type="file" id="logoUpload" accept="image/*" onchange="handleLogoUpload(event)">
+          </div>
+          <button class="btn btn-danger" style="width:100%; margin-bottom:10px;" onclick="removeLogo()">Remove Logo</button>
+        </div>
+
+        <div class="form-group" style="margin-top:15px;">
+          <label>Client Template</label>
+          <div class="row-2">
+            <select id="clientSelect" onchange="loadSelectedClient()">
+              <option value="">-- Saved Clients --</option>
+            </select>
+            <button class="btn btn-secondary" style="flex:0 0 100px;" onclick="saveClientTemplate()">Save Client</button>
+          </div>
+        </div>
+
+        <div class="form-group"><input type="text" id="inputClientName" placeholder="Client / Company Name" oninput="updateInvoice()"></div>
+        <div class="form-group"><input type="email" id="inputClientEmail" placeholder="Client Email Address" oninput="updateInvoice()"></div>
+        <div class="form-group"><textarea id="inputClientAddr" rows="2" placeholder="Client Street Address&#10;City, Region" oninput="updateInvoice()"></textarea></div>
+      </div>
+    </details>
+
+    <details open class="sidebar-section">
+      <summary>4. Invoice Details & Labor</summary>
+      <div class="sidebar-content">
+        <div class="row-2">
+          <div class="form-group"><label>Invoice #</label><input type="text" id="inputInvNum" placeholder="1001" oninput="updateInvoice()"></div>
+          <div class="form-group"><label>Invoice Date</label><input type="text" id="inputInvDate" placeholder="Oct 24, 2026" oninput="updateInvoice()"></div>
+        </div>
+
+        <div class="form-group">
+          <label>Labor Description</label>
+          <textarea id="inputDefaultDesc" rows="2" placeholder="Consulting Services" onfocus="markItemsInteracted()" oninput="markItemsInteracted(); updateInvoice()"></textarea>
+        </div>
+
+        <div class="row-4">
+          <div class="form-group"><label>Hrs</label><input type="number" step="0.25" id="inputDefaultQty" placeholder="1.0" max="9999" maxlength="6" onfocus="markItemsInteracted()" oninput="markItemsInteracted(); updateInvoice()"></div>
+          <div class="form-group"><label>Rate</label><input type="number" step="0.01" id="inputDefaultRate" placeholder="50" max="99999" maxlength="7" onfocus="markItemsInteracted()" oninput="markItemsInteracted(); updateInvoice()"></div>
+          <div class="form-group"><label>Disc %</label><input type="number" step="1" id="inputLaborDisc" placeholder="0" min="-100" max="100" maxlength="5" onfocus="markItemsInteracted()" oninput="markItemsInteracted(); updateInvoice()"></div>
+          <div class="form-group" style="display:flex; flex-direction:column; justify-content:flex-end;">
+            <label style="display:flex; align-items:center; font-size:0.8rem; height: 38px;"><input type="checkbox" id="inputLaborTaxable" onchange="markItemsInteracted(); updateInvoice()" checked style="width:auto; margin-right:4px;"> Tax</label>
+          </div>
+        </div>
+
+        <div class="calendar-container">
+          <div class="calendar-header">
+            <button onclick="changeMonth(-1)">&lsaquo; Prev</button>
+            <span id="calendarMonthYear">Month Year</span>
+            <button onclick="changeMonth(1)">Next &rsaquo;</button>
+          </div>
+          <div class="calendar-grid" id="calendarGrid"></div>
+        </div>
+      </div>
+    </details>
+
+    <details open class="sidebar-section">
+      <summary>5. Sales, Parts & Line Items</summary>
+      <div class="sidebar-content">
+        <div id="additionalItemsContainer"></div>
+        <button class="btn btn-success" style="width:100%; margin-bottom:15px;" onclick="addAdditionalItem()">+ Add Line Item</button>
+      </div>
+    </details>
+
+    <details class="sidebar-section">
+      <summary>6. Grand Total Discount</summary>
+      <div class="sidebar-content">
+        <div class="form-group">
+          <label>Overall Discount % (Applied to Subtotal)</label>
+          <input type="number" step="1" id="inputGlobalDisc" placeholder="0" min="0" max="100" maxlength="5" oninput="updateInvoice()">
+        </div>
+      </div>
+    </details>
+
+    <details class="sidebar-section">
+      <summary>7. Payment Terms & Email Templates</summary>
+      <div class="sidebar-content">
+        <div class="form-group">
+          <label>Payment Terms / Instructions</label>
+          <textarea id="inputPaymentInfo" rows="3" placeholder="Payment due within 30 days&#10;E-transfer to: e-transfer@example.com" oninput="updateInvoice()"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Your Address / Contact Info (Footer)</label>
+          <textarea id="inputYourAddress" rows="3" placeholder="123 Studio Ave, Suite 100&#10;City, Region, Postal Code" oninput="updateInvoice()"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Email Subject Template</label>
+          <input type="text" id="inputEmailSubject" value="Invoice #{invNum} from {senderName}" oninput="saveCurrentInvoice()">
+        </div>
+
+        <div class="form-group">
+          <label>Email Message Body Template</label>
+          <textarea id="inputEmailBody" rows="4" oninput="saveCurrentInvoice()">Hi {clientName},
+
+Please find attached my invoice #{invNum} dated {invDate}.
+
+{paymentLinks}
+
+Thank you for your business!
+
+Best regards,
+{senderName}</textarea>
+        </div>
+      </div>
+    </details>
+
+    <details class="sidebar-section">
+      <summary>8. Payment Icons & QR Code</summary>
+      <div class="sidebar-content">
+        <div class="form-group">
+          <label>Upload Payment QR Code Image (JPG, PNG, GIF, WebP)</label>
+          <input type="file" id="qrUpload" accept="image/*" onchange="handleQrUpload(event)">
+        </div>
+        <button class="btn btn-danger" style="width:100%; margin-bottom:12px;" onclick="removeQrCode()">Remove QR Code</button>
+
+        <div class="form-group">
+          <label>PayPal Direct Link / Button URL (Use {amount} for auto-total)</label>
+          <input type="text" id="inputPaypalUrl" placeholder="https://www.paypal.com/paypalme/youraccount/{amount}" oninput="updateInvoice()">
+        </div>
+
+        <div class="form-group">
+          <label>Interac / Custom Payment Link / Button URL</label>
+          <input type="text" id="inputInteracUrl" placeholder="https://yourbank.com/pay or e-transfer@example.com" oninput="updateInvoice()">
+        </div>
+
+        <div class="form-group">
+          <label>Custom HTML Link / Button Code (For E-Invoices)</label>
+          <textarea id="inputCustomHtmlLink" rows="2" placeholder='<a href="https://example.com/pay" style="padding:8px 12px; background:#2563eb; color:#fff; text-decoration:none; border-radius:4px;">Pay Now</a>' oninput="updateInvoice()"></textarea>
+        </div>
+
+        <div class="form-group" style="background:#f8fafc; padding:10px; border:1px solid var(--border); border-radius:6px;">
+          <label style="display:flex; align-items:center; font-size:0.88rem; font-weight:bold; cursor:pointer;">
+            <input type="checkbox" id="inputEInvoiceMode" onchange="updateInvoice()" style="width:18px; height:18px; margin-right:8px; cursor:pointer;">
+            Send Direct E-Invoice Email (Inline links instead of PDF attach)
+          </label>
+        </div>
+      </div>
+    </details>
+
+    <details class="sidebar-section">
+      <summary>9. Print & Save</summary>
+      <div class="sidebar-content">
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <button class="btn btn-email" onclick="generatePDFAndEmail()">Print PDF & Email Client</button>
+          <button class="btn btn-warning" onclick="checkOverdueInvoices(true)">Check Overdue Invoices Alarm</button>
+          <button class="btn btn-primary" onclick="openSystemPrinterPDF()">Print / Save as PDF Only</button>
+          <button class="btn btn-success" onclick="openExportCsvModal()">Export CSV (All Invoices / Filtered)</button>
+        </div>
+      </div>
+    </details>
+
+  </div>
+
+  <div class="resizer no-print" id="dragResizer" title="Drag to resize sidebar"></div>
+
+  <div class="preview-container">
+    <div class="chip-palette-wrapper no-print">
+      <div class="chip-palette-header">
+        <div class="chip-palette-title">Favourites</div>
+        <button class="btn-add-chip" onclick="addQuickChip()">+ Add Favourite</button>
+      </div>
+      <div id="chipPalette" class="chip-palette"></div>
+    </div>
+
+    <div class="invoice-paper" id="printableArea">
+      <div id="dispPaidStamp" class="paid-stamp" style="display:none;">PAID</div>
+
+      <div>
+        <div class="inv-header">
+          <div class="inv-sender">
+            <div id="dispLogoContainer" style="display:none;"><img id="dispLogo" class="header-logo-img" src="" alt="Logo"></div>
+            <div id="dispSenderName" style="font-size:18px; font-weight:bold;">Your Business Name</div>
+            <span id="dispInvDate">Date</span>
+          </div>
+          <div class="inv-number-title">
+            Invoice No. <span id="dispInvNum">1001</span>
+          </div>
+        </div>
+
+        <div class="inv-client">
+          <span id="dispClientName">CLIENT NAME</span><br>
+          <div class="inv-client-address" id="dispClientAddr">Client Address</div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="inv-table">
+            <thead>
+              <tr>
+                <th class="col-date">Date</th>
+                <th class="col-desc">Description</th>
+                <th class="col-qty">Hrs / Qty</th>
+                <th class="col-price">Rate</th>
+                <th class="col-disc">Disc %</th>
+                <th class="col-tax">Tax</th>
+                <th class="col-total">Total</th>
+              </tr>
+            </thead>
+            <tbody id="dispTableBody"></tbody>
+          </table>
+        </div>
+
+        <div class="totals-box">
+          <div class="totals-row">
+            <span>Subtotal:</span>
+            <span><span class="curr"></span><span id="dispSubtotal">0.00</span></span>
+          </div>
+          <div class="totals-row discount-row" id="globalDiscRow" style="display:none;">
+            <span>Overall Discount (<span id="dispGlobalDiscRate">0</span>%):</span>
+            <span>-<span class="curr"></span><span id="dispGlobalDiscAmt">0.00</span></span>
+          </div>
+          <div class="totals-row" id="taxRow" style="display:none;">
+            <span>Tax (<span id="dispTaxNameLabel">Tax</span> <span id="dispTaxRateLabel">0</span>%):</span>
+            <span><span class="curr"></span><span id="dispTaxAmt">0.00</span></span>
+          </div>
+          <div class="grand-total-row">
+            <span>Total:</span>
+            <span><span class="curr"></span><span id="dispGrandTotal">0.00</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="inv-footer">
+        <div class="inv-footer-block" id="blockPaymentInfo" style="display:none;">
+          <div class="inv-footer-title">Payment Terms</div>
+          <div id="dispPaymentInfo" style="white-space:pre-line;"></div>
+        </div>
+
+        <div class="inv-footer-block" id="blockPaymentIcons" style="display:none;">
+          <div class="inv-footer-title">Scan or Click to Pay</div>
+          <div class="qr-container">
+            <div id="dispQrContainer" style="display:none;">
+              <img id="dispQrImg" class="qr-img" src="" alt="Payment QR Code">
+            </div>
+            <div id="dispPaymentButtonsContainer" class="payment-buttons-wrapper"></div>
+          </div>
+        </div>
+
+        <div class="inv-footer-block" id="blockYourAddress" style="display:none;">
+          <div id="dispYourAddress" style="white-space:pre-line;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="wizard-overlay no-print" id="wizardModal" style="display:none;">
+  <div class="wizard-card">
+    <div class="wizard-header">
+      <h2>Invoice Creation Wizard</h2>
+      <p>Follow the steps to configure your invoice</p>
+    </div>
+
+    <div class="wizard-progress">
+      <div class="progress-step active" id="pStep1">1</div>
+      <div class="progress-step" id="pStep2">2</div>
+      <div class="progress-step" id="pStep3">3</div>
+      <div class="progress-step" id="pStep4">4</div>
+      <div class="progress-step" id="pStep5">5</div>
+      <div class="progress-step" id="pStep6">6</div>
+    </div>
+
+    <div class="wizard-step-content active" id="wizStep1">
+      <h3>How would you like to start?</h3>
+      <div class="wizard-choice-grid">
+        <div class="wizard-choice-card" onclick="wizSelectStart('new', this)">
+          <h4>New Invoice</h4>
+          <p>Create a new invoice from scratch</p>
+        </div>
+        <div class="wizard-choice-card" onclick="wizSelectStart('saved', this)">
+          <h4>Old Invoice</h4>
+          <p>Re-open or modify a past invoice</p>
+        </div>
+      </div>
+      <div id="wizSavedSection" style="display:none; margin-top:15px;">
+        <div class="form-group">
+          <label>Select Saved Invoice</label>
+          <select id="wizHistorySelect" style="width:100%;"><option value="">-- Choose Invoice --</option></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="wizard-step-content" id="wizStep2">
+      <h3>Your Business Info</h3>
+      <p style="font-size:0.8rem; color:#64748b; margin-bottom:15px;">Saved automatically for future invoices.</p>
+      <div class="form-group"><label>Business / Provider Name</label><input type="text" id="wizBizName" placeholder="e.g. Studio Audio Services"></div>
+      <div class="form-group"><label>Return Address / Contact</label><textarea id="wizBizAddr" rows="2" placeholder="123 Main St&#10;City, Region"></textarea></div>
+      <div class="form-group"><label>Payment Instructions</label><textarea id="wizPayTerms" rows="2" placeholder="E-transfer to info@example.com"></textarea></div>
+    </div>
+
+    <div class="wizard-step-content" id="wizStep3">
+      <h3>Who is this invoice for?</h3>
+      <div class="form-group">
+        <label>Load Saved Client</label>
+        <select id="wizClientSelect" onchange="wizLoadClient()"><option value="">-- Saved Clients --</option></select>
+      </div>
+      <div class="form-group"><label>Client / Company Name</label><input type="text" id="wizClientName" placeholder="e.g. Acme Corp"></div>
+      <div class="form-group"><label>Client Email</label><input type="email" id="wizClientEmail" placeholder="client@example.com"></div>
+      <div class="form-group"><label>Client Address</label><textarea id="wizClientAddr" rows="2" placeholder="Client Street, City, Region"></textarea></div>
+    </div>
+
+    <div class="wizard-step-content" id="wizStep4">
+      <h3>Are you billing for Labor or Services?</h3>
+      <div class="wizard-choice-grid">
+        <div class="wizard-choice-card" id="cardLaborYes" onclick="wizToggleLabor(true)">
+          <h4>Yes</h4>
+          <p>Bill for hourly or daily labor</p>
+        </div>
+        <div class="wizard-choice-card" id="cardLaborNo" onclick="wizToggleLabor(false)">
+          <h4>No</h4>
+          <p>Products or flat items only</p>
+        </div>
+      </div>
+      <div id="wizLaborFields" style="display:none; margin-top:15px;">
+        <div class="form-group"><label>Service Description</label><input type="text" id="wizLaborDesc" placeholder="e.g. Audio Engineering / Consulting"></div>
+        <div class="row-3">
+          <div class="form-group"><label>Hours / Qty</label><input type="number" step="0.25" id="wizLaborQty" placeholder="5.0" max="9999" maxlength="6"></div>
+          <div class="form-group"><label>Hourly Rate</label><input type="number" step="0.01" id="wizLaborRate" placeholder="60" max="99999" maxlength="7"></div>
+          <div class="form-group"><label>Disc %</label><input type="number" step="1" id="wizLaborDisc" placeholder="0" min="-100" max="100" maxlength="5"></div>
+        </div>
+        <label style="display:flex; align-items:center; font-size:0.85rem;"><input type="checkbox" id="wizLaborTaxable" checked style="width:auto; margin-right:6px;"> Charge tax on labor</label>
+      </div>
+    </div>
+
+    <div class="wizard-step-content" id="wizStep5">
+      <h3>Did you sell any parts or extra goods?</h3>
+      <div class="wizard-choice-grid">
+        <div class="wizard-choice-card" id="cardSalesYes" onclick="wizToggleSales(true)">
+          <h4>Yes</h4>
+          <p>Add parts, software, or flat fees</p>
+        </div>
+        <div class="wizard-choice-card" id="cardSalesNo" onclick="wizToggleSales(false)">
+          <h4>No</h4>
+          <p>No extra physical parts</p>
+        </div>
+      </div>
+      <div id="wizSalesFields" style="display:none; margin-top:15px;">
+        <div id="wizItemsContainer"></div>
+        <button class="btn btn-success" onclick="addWizardItem()" style="width:100%;">+ Add Item</button>
+      </div>
+    </div>
+
+    <div class="wizard-step-content" id="wizStep6">
+      <h3>Ready to Generate!</h3>
+      <p style="font-size:0.9rem; color:#475569; margin-bottom:15px;">Your invoice details have been collected! Click <strong>Finish & View Invoice</strong> to preview your invoice.</p>
+    </div>
+
+    <div class="wizard-actions">
+      <button class="btn btn-secondary" id="wizPrevBtn" onclick="wizNav(-1)">Previous</button>
+      <div>
+        <button class="btn btn-secondary" onclick="closeWizard()">Skip / Close</button>
+        <button class="btn btn-primary" id="wizNextBtn" onclick="wizNav(1)">Next Step</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay no-print" id="timeModal" style="display:none;">
+  <div class="modal-card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="margin:0; font-size:1.1rem;" id="modalDateTitle">Working Hours</h3>
+      <button class="btn btn-danger" style="padding:4px 8px; font-size:0.8rem;" onclick="closeTimeModal()">&times;</button>
+    </div>
+    
+    <p style="font-size:0.75rem; color:#64748b; margin-top:0; margin-bottom:10px;">
+      Click or tap 15-min slots to select working hours for this date.
+    </p>
+
+    <div class="timeline-container" id="timelineContainer"></div>
+
+    <div style="margin-top:12px; display:flex; justify-content:space-between; align-items:center;">
+      <div style="font-weight:bold; font-size:0.85rem; color:#1e293b;">
+        Total Selected: <span id="modalTotalHours" style="color:var(--primary);">0.0</span> hrs
+      </div>
+      <div style="display:flex; gap:6px;">
+        <button class="btn btn-secondary" style="padding:6px 10px; font-size:0.8rem;" onclick="clearTimelineSlots()">Clear All</button>
+        <button class="btn btn-primary" style="padding:6px 12px; font-size:0.8rem;" onclick="saveTimelineSlots()">Apply to Invoice</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay no-print" id="reminderModal" style="display:none;">
+  <div class="modal-card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="margin:0; font-size:1.1rem; color:#dc2626; display:flex; align-items:center; gap:6px;">
+        Overdue Unpaid Invoices
+      </h3>
+      <button class="btn btn-danger" style="padding:4px 8px; font-size:0.8rem;" onclick="closeReminderModal()">&times;</button>
+    </div>
+    
+    <p style="font-size:0.8rem; color:#64748b; margin-top:0; margin-bottom:12px;">
+      The following invoices are still unpaid and have exceeded your threshold of <strong id="reminderDaysSpan">7</strong> days:
+    </p>
+
+    <div id="reminderListContainer" style="max-height:300px; overflow-y:auto; margin-bottom:12px;"></div>
+
+    <div style="display:flex; justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeReminderModal()">Close Alarm</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay no-print" id="exportCsvModal" style="display:none;">
+  <div class="modal-card" style="width: 460px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h3 style="margin:0; font-size:1.15rem; color:#1e293b; display:flex; align-items:center; gap:6px;">
+        Export All Invoices to CSV
+      </h3>
+      <button class="btn btn-danger" style="padding:4px 8px; font-size:0.8rem;" onclick="closeExportCsvModal()">&times;</button>
+    </div>
+    
+    <p style="font-size:0.82rem; color:#64748b; margin-top:0; margin-bottom:14px;">
+      Export system invoices into a single compiled CSV file for accounting and tax reporting.
+    </p>
+
+    <div class="form-group">
+      <label>Invoice Status Filter</label>
+      <select id="exportStatusSelect">
+        <option value="all">All Invoices (Paid & Unpaid)</option>
+        <option value="paid">All Paid Invoices Only</option>
+        <option value="unpaid">All Unpaid Invoices Only</option>
+      </select>
+    </div>
+
+    <div class="row-2">
+      <div class="form-group">
+        <label>Export Start Date</label>
+        <input type="date" id="exportStartDate">
+      </div>
+      <div class="form-group">
+        <label>Export End Date</label>
+        <input type="date" id="exportEndDate">
+      </div>
+    </div>
+    <p style="font-size:0.72rem; color:#94a3b8; margin-top:-6px; margin-bottom:16px;">Leave dates empty to include all historical dates.</p>
+
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button class="btn btn-secondary" onclick="closeExportCsvModal()">Cancel</button>
+      <button class="btn btn-success" onclick="generateAndDownloadCsv()">Generate & Download CSV</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let invoiceHistory = JSON.parse(localStorage.getItem("invoice_history") || "{}");
+  let clients = JSON.parse(localStorage.getItem("invoice_clients") || "{}");
+  let persistentChips = JSON.parse(localStorage.getItem("global_chip_palette") || "[]");
+  let reminderThresholdDays = parseInt(localStorage.getItem("reminder_threshold_days") || "7", 10);
+
+  let currentYear, currentMonth;
+  let selectedDates = [];
+  let dateCustomData = {};
+  let additionalItems = [];
+  let logoBase64 = localStorage.getItem("invoice_logo_b64") || "";
+  let qrBase64 = localStorage.getItem("invoice_qr_b64") || "";
+  let activeEditingDate = null;
+  let isDraggingSlots = false;
+  let dragSetState = true;
+  let modalActiveSlots = new Set();
+  let currentWizStep = 1;
+  let hasLabor = true;
+  let hasSales = true;
+  let userHasInteractedWithItems = false;
+  // Snapshot of the main invoice form before the wizard opens. This prevents
+  // Skip / Close from ever mixing wizard fields into unrelated invoice fields.
+  let wizardInitialData = null;
+
+  function markItemsInteracted() {
+    if (!userHasInteractedWithItems) {
+      userHasInteractedWithItems = true;
+      updateInvoice();
+    }
+  }
+
+  function escapeAttr(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  window.onload = function() {
+    initDate();
+    loadProfileDefaults();
+    updateBizDatalist();
+    populateClientSelects();
+    populateHistorySelects();
+    renderCalendar();
+    buildTimelineUI();
+    renderAdditionalItemsUI();
+    renderPersistentChips();
+    initResizer();
+    updateInvoice();
+
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+
+    openWizard(1);
+
+    setTimeout(() => {
+      checkOverdueInvoices(false);
+    }, 600);
+  };
+
+  function initResizer() {
+    const sidebar = document.getElementById("sidebarPanel");
+    const resizer = document.getElementById("dragResizer");
+    if (!sidebar || !resizer) return;
+
+    let isResizing = false;
+
+    resizer.addEventListener("mousedown", function(e) {
+      isResizing = true;
+      resizer.classList.add("dragging");
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+    });
+
+    document.addEventListener("mousemove", function(e) {
+      if (!isResizing) return;
+      let newWidth = e.clientX;
+      if (newWidth >= 320 && newWidth <= 800) {
+        sidebar.style.width = newWidth + "px";
+      }
+    });
+
+    document.addEventListener("mouseup", function() {
+      if (isResizing) {
+        isResizing = false;
+        resizer.classList.remove("dragging");
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      }
+    });
+  }
+
+  function toggleHeaderMode() {
+    const mode = document.getElementById("headerMode").value;
+    document.getElementById("textHeaderControls").style.display = (mode === "text") ? "block" : "none";
+    document.getElementById("logoHeaderControls").style.display = (mode === "logo") ? "block" : "none";
+    document.getElementById("dispLogoContainer").style.display = (mode === "logo" && logoBase64) ? "block" : "none";
+    document.getElementById("dispSenderName").style.display = (mode === "text" || !logoBase64) ? "block" : "none";
+    updateInvoice();
+  }
+
+  function handleLogoUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      logoBase64 = e.target.result;
+      localStorage.setItem("invoice_logo_b64", logoBase64);
+      document.getElementById("dispLogo").src = logoBase64;
+      toggleHeaderMode();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removeLogo() {
+    logoBase64 = "";
+    localStorage.removeItem("invoice_logo_b64");
+    document.getElementById("logoUpload").value = "";
+    document.getElementById("dispLogo").src = "";
+    toggleHeaderMode();
+  }
+
+  function handleQrUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      qrBase64 = e.target.result;
+      localStorage.setItem("invoice_qr_b64", qrBase64);
+      updateInvoice();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removeQrCode() {
+    qrBase64 = "";
+    localStorage.removeItem("invoice_qr_b64");
+    document.getElementById("qrUpload").value = "";
+    updateInvoice();
+  }
+
+  function saveBizName(val) {
+    if (!val) return;
+    localStorage.setItem("profile_biz_name", val);
+    let bizList = JSON.parse(localStorage.getItem("profile_biz_list") || "[]");
+    if (val.trim() && !bizList.includes(val.trim())) {
+      bizList.push(val.trim());
+      localStorage.setItem("profile_biz_list", JSON.stringify(bizList));
+      updateBizDatalist();
+    }
+  }
+
+  function updateBizDatalist() {
+    const bizList = JSON.parse(localStorage.getItem("profile_biz_list") || "[]");
+    const datalist = document.getElementById("bizNameList");
+    if (datalist) {
+      datalist.innerHTML = bizList.map(b => `<option value="${escapeAttr(b)}">`).join('');
+    }
+  }
+
+  function loadProfileDefaults() {
+    const biz = localStorage.getItem("profile_biz_name") || "";
+    const addr = localStorage.getItem("profile_your_addr") || "";
+    const pay = localStorage.getItem("profile_payment_info") || "";
+
+    if (biz) document.getElementById("inputSenderName").value = biz;
+    if (addr) document.getElementById("inputYourAddress").value = addr;
+    if (pay) document.getElementById("inputPaymentInfo").value = pay;
+
+    if (logoBase64) {
+      document.getElementById("dispLogo").src = logoBase64;
+      document.getElementById("headerMode").value = "logo";
+    }
+
+    document.getElementById("inputReminderDays").value = reminderThresholdDays;
+  }
+
+  function saveReminderSettings() {
+    const val = parseInt(document.getElementById("inputReminderDays").value, 10);
+    if (!isNaN(val) && val > 0) {
+      reminderThresholdDays = val;
+      localStorage.setItem("reminder_threshold_days", val);
+    }
+  }
+
+  function togglePaidStatus() {
+    const isPaid = document.getElementById("inputIsPaid").checked;
+    document.getElementById("dispPaidStamp").style.display = isPaid ? "block" : "none";
+    saveCurrentInvoice();
+  }
+
+  function checkOverdueInvoices(manualTrigger = false) {
+    const today = new Date();
+    const overdueList = [];
+
+    Object.keys(invoiceHistory).forEach(num => {
+      const inv = invoiceHistory[num];
+      if (!inv.isPaid) {
+        const invDateObj = new Date(inv.invDate);
+        if (!isNaN(invDateObj.getTime())) {
+          const diffTime = today - invDateObj;
+          const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+          if (diffDays >= reminderThresholdDays) {
+            const totals = calculateDetailedInvoiceTotal(inv);
+            overdueList.push({
+              num: inv.invNum,
+              client: inv.clientName || 'Unknown Client',
+              date: inv.invDate,
+              daysOverdue: diffDays,
+              amount: (inv.currency || '$') + totals.grandTotal.toFixed(2)
+            });
+          }
+        }
+      }
+    });
+
+    if (overdueList.length > 0) {
+      renderOverdueModal(overdueList);
+    } else if (manualTrigger) {
+      alert("No overdue unpaid invoices found!");
+    }
+  }
+
+  function calculateDetailedInvoiceTotal(inv) {
+    let subtotal = 0;
+    let totalTaxableSub = 0;
+    const defaultQty = parseFloat(inv.qty) || 0;
+    const defaultRate = parseFloat(inv.rate) || 0;
+    const laborDisc = parseFloat(inv.laborDisc) || 0;
+
+    if (inv.selectedDates && inv.selectedDates.length > 0) {
+      inv.selectedDates.forEach(d => {
+        const custom = inv.dateCustomData ? inv.dateCustomData[d] : null;
+        const q = custom ? custom.qty : (defaultQty > 0 ? defaultQty : 1);
+        const gross = q * defaultRate;
+        const lineTotal = gross - (gross * (laborDisc / 100));
+        subtotal += lineTotal;
+        if (inv.laborTaxable !== false) totalTaxableSub += lineTotal;
+      });
+    } else if (defaultQty > 0) {
+      const gross = defaultQty * defaultRate;
+      const lineTotal = gross - (gross * (laborDisc / 100));
+      subtotal += lineTotal;
+      if (inv.laborTaxable !== false) totalTaxableSub += lineTotal;
+    }
+
+    if (inv.additionalItems) {
+      inv.additionalItems.forEach(item => {
+        const q = parseFloat(item.qty) || 0;
+        const p = parseFloat(item.price) || 0;
+        const d = parseFloat(item.disc) || 0;
+        const gross = q * p;
+        const lineTotal = gross - (gross * (d / 100));
+        subtotal += lineTotal;
+        if (item.taxable) totalTaxableSub += lineTotal;
+      });
+    }
+
+    const globalDiscRate = parseFloat(inv.globalDisc) || 0;
+    const globalDiscAmt = subtotal * (globalDiscRate / 100);
+    const subAfterGlobalDisc = subtotal - globalDiscAmt;
+
+    const taxRate = parseFloat(inv.taxRate) || 0;
+    const taxableRatio = subtotal > 0 ? (totalTaxableSub / subtotal) : 0;
+    const taxAmt = (subAfterGlobalDisc * taxableRatio) * (taxRate / 100);
+
+    return {
+      subtotal: subtotal,
+      globalDiscAmt: globalDiscAmt,
+      subAfterGlobalDisc: subAfterGlobalDisc,
+      taxAmt: taxAmt,
+      grandTotal: subAfterGlobalDisc + taxAmt
+    };
+  }
+
+  function renderOverdueModal(list) {
+    const container = document.getElementById("reminderListContainer");
+    document.getElementById("reminderDaysSpan").innerText = reminderThresholdDays;
+    container.innerHTML = "";
+
+    list.forEach(item => {
+      const card = document.createElement("div");
+      card.className = "reminder-item";
+      card.innerHTML = `
+        <div class="reminder-item-info">
+          <strong>#${item.num} - ${escapeAttr(item.client)}</strong>
+          <p>Issued: ${item.date} | Amount: <strong>${item.amount}</strong> | <span style="color:#dc2626; font-weight:bold;">${item.daysOverdue} days overdue</span></p>
+        </div>
+        <div class="reminder-item-actions">
+          <button class="btn btn-success" style="font-size:0.75rem; padding:6px 10px;" onclick="markInvoicePaidFromModal('${item.num}')">Mark Paid</button>
+          <button class="btn btn-warning" style="font-size:0.75rem; padding:6px 10px;" onclick="sendOverdueReminderEmail('${item.num}')">Send Reminder</button>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+
+    document.getElementById("reminderModal").style.display = "flex";
+  }
+
+  function closeReminderModal() {
+    document.getElementById("reminderModal").style.display = "none";
+  }
+
+  function markInvoicePaidFromModal(num) {
+    if (invoiceHistory[num]) {
+      invoiceHistory[num].isPaid = true;
+      localStorage.setItem("invoice_history", JSON.stringify(invoiceHistory));
+
+      if (document.getElementById("inputInvNum").value.trim() === num) {
+        document.getElementById("inputIsPaid").checked = true;
+        document.getElementById("dispPaidStamp").style.display = "block";
+      }
+
+      populateHistorySelects();
+      alert(`Invoice #${num} marked as PAID!`);
+      checkOverdueInvoices(false);
+      if (document.getElementById("reminderListContainer").children.length === 0) {
+        closeReminderModal();
+      }
+    }
+  }
+
+  function sendOverdueReminderEmail(num) {
+    const inv = invoiceHistory[num];
+    if (!inv) return;
+
+    const clientEmail = inv.clientEmail;
+    if (!clientEmail) {
+      alert(`Invoice #${num} has no client email address saved!`);
+      return;
+    }
+
+    const subject = `Overdue Payment Reminder: Invoice #${inv.invNum}`;
+    const body = `Hi ${inv.clientName || 'Client'},\n\nThis is a friendly reminder that Invoice #${inv.invNum} issued on ${inv.invDate} is currently overdue.\n\nPlease let us know when we can expect payment.\n\nThank you,\n${inv.senderName || ''}`;
+
+    const mailtoUrl = `mailto:${clientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailtoUrl;
+  }
+
+  function openWizard(step = 1) {
+    // Capture the current main form before any wizard interaction.
+    wizardInitialData = {
+      senderName: document.getElementById("inputSenderName").value,
+      yourAddress: document.getElementById("inputYourAddress").value,
+      paymentInfo: document.getElementById("inputPaymentInfo").value,
+      clientName: document.getElementById("inputClientName").value,
+      clientEmail: document.getElementById("inputClientEmail").value,
+      clientAddr: document.getElementById("inputClientAddr").value,
+      paypalUrl: document.getElementById("inputPaypalUrl").value,
+      interacUrl: document.getElementById("inputInteracUrl").value,
+      customHtmlLink: document.getElementById("inputCustomHtmlLink").value
+    };
+
+    currentWizStep = step;
+    showWizStep(currentWizStep);
+
+    document.getElementById("wizBizName").value = wizardInitialData.senderName;
+    document.getElementById("wizBizAddr").value = wizardInitialData.yourAddress;
+    document.getElementById("wizPayTerms").value = wizardInitialData.paymentInfo;
+
+    document.getElementById("wizClientName").value = wizardInitialData.clientName;
+    document.getElementById("wizClientEmail").value = wizardInitialData.clientEmail;
+    document.getElementById("wizClientAddr").value = wizardInitialData.clientAddr;
+
+    document.getElementById("wizLaborDesc").value = document.getElementById("inputDefaultDesc").value;
+    document.getElementById("wizLaborQty").value = document.getElementById("inputDefaultQty").value;
+    document.getElementById("wizLaborRate").value = document.getElementById("inputDefaultRate").value;
+    document.getElementById("wizLaborDisc").value = document.getElementById("inputLaborDisc").value;
+
+    document.getElementById("wizardModal").style.display = "flex";
+  }
+
+  function closeWizard() {
+    document.getElementById("wizardModal").style.display = "none";
+
+    // Always restore the business name from the state that existed before the
+    // wizard opened. This is especially important for Skip / Close.
+    const initial = wizardInitialData || {
+      senderName: document.getElementById("inputSenderName").value,
+      yourAddress: document.getElementById("inputYourAddress").value,
+      paymentInfo: document.getElementById("inputPaymentInfo").value,
+      clientName: document.getElementById("inputClientName").value,
+      clientEmail: document.getElementById("inputClientEmail").value,
+      clientAddr: document.getElementById("inputClientAddr").value,
+      paypalUrl: document.getElementById("inputPaypalUrl").value,
+      interacUrl: document.getElementById("inputInteracUrl").value,
+      customHtmlLink: document.getElementById("inputCustomHtmlLink").value
+    };
+
+    document.getElementById("inputSenderName").value = initial.senderName;
+    saveBizName(initial.senderName);
+    document.getElementById("inputYourAddress").value = initial.yourAddress;
+    document.getElementById("inputPaymentInfo").value = initial.paymentInfo;
+
+    localStorage.setItem("profile_biz_name", initial.senderName);
+    localStorage.setItem("profile_your_addr", initial.yourAddress);
+    localStorage.setItem("profile_payment_info", initial.paymentInfo);
+
+    document.getElementById("inputClientName").value = initial.clientName;
+    document.getElementById("inputClientEmail").value = initial.clientEmail;
+    document.getElementById("inputClientAddr").value = initial.clientAddr;
+
+    // These fields are NOT wizard fields. Restore their original values so a
+    // skipped wizard can never put the business name or another value into them.
+    document.getElementById("inputPaypalUrl").value = initial.paypalUrl;
+    document.getElementById("inputInteracUrl").value = initial.interacUrl;
+    document.getElementById("inputCustomHtmlLink").value = initial.customHtmlLink;
+
+    if (hasLabor) {
+      document.getElementById("inputDefaultDesc").value = document.getElementById("wizLaborDesc").value;
+      document.getElementById("inputDefaultQty").value = document.getElementById("wizLaborQty").value;
+      document.getElementById("inputDefaultRate").value = document.getElementById("wizLaborRate").value;
+      document.getElementById("inputLaborDisc").value = document.getElementById("wizLaborDisc").value;
+      document.getElementById("inputLaborTaxable").checked = document.getElementById("wizLaborTaxable").checked;
+
+      if (document.getElementById("wizLaborQty").value || document.getElementById("wizLaborRate").value) {
+        userHasInteractedWithItems = true;
+      }
+    } else {
+      document.getElementById("inputDefaultQty").value = "";
+    }
+
+    if (additionalItems.length > 0) {
+      userHasInteractedWithItems = true;
+    }
+
+    renderAdditionalItemsUI();
+    updateInvoice();
+    wizardInitialData = null;
+  }
+
+  function showWizStep(step) {
+    for (let i = 1; i <= 6; i++) {
+      document.getElementById(`wizStep${i}`).classList.remove("active");
+      const p = document.getElementById(`pStep${i}`);
+      p.classList.remove("active", "completed");
+      if (i < step) p.classList.add("completed");
+      if (i === step) p.classList.add("active");
+    }
+    document.getElementById(`wizStep${step}`).classList.add("active");
+
+    document.getElementById("wizPrevBtn").style.visibility = (step === 1) ? "hidden" : "visible";
+    document.getElementById("wizNextBtn").innerText = (step === 6) ? "Finish & View Invoice" : "Next Step";
+  }
+
+  function wizNav(dir) {
+    if (dir === 1 && currentWizStep === 1) {
+      const mode = document.querySelector("#wizStep1 .wizard-choice-card.selected");
+      if (mode && mode.innerText.includes("Saved")) {
+        const val = document.getElementById("wizHistorySelect").value;
+        if (!val) return alert("Select a saved invoice.");
+        document.getElementById("historySelect").value = val;
+        loadInvoiceFromHistory();
+        closeWizard();
+        return;
+      }
+    }
+
+    if (dir === 1 && currentWizStep === 6) {
+      closeWizard();
+      return;
+    }
+
+    currentWizStep += dir;
+    if (currentWizStep < 1) currentWizStep = 1;
+    if (currentWizStep > 6) currentWizStep = 6;
+    showWizStep(currentWizStep);
+  }
+
+  function wizSelectStart(mode, el) {
+    document.querySelectorAll("#wizStep1 .wizard-choice-card").forEach(c => c.classList.remove("selected"));
+    if (el) el.classList.add("selected");
+    if (mode === 'new') {
+      document.getElementById("wizSavedSection").style.display = "none";
+      startNewInvoice();
+    } else {
+      document.getElementById("wizSavedSection").style.display = "block";
+    }
+  }
+
+  function wizToggleLabor(enable) {
+    hasLabor = enable;
+    document.getElementById("cardLaborYes").classList.toggle("selected", enable);
+    document.getElementById("cardLaborNo").classList.toggle("selected", !enable);
+    document.getElementById("wizLaborFields").style.display = enable ? "block" : "none";
+  }
+
+  function wizToggleSales(enable) {
+    hasSales = enable;
+    document.getElementById("cardSalesYes").classList.toggle("selected", enable);
+    document.getElementById("cardSalesNo").classList.toggle("selected", !enable);
+    document.getElementById("wizSalesFields").style.display = enable ? "block" : "none";
+    if (enable && additionalItems.length === 0) addWizardItem();
+  }
+
+  function addWizardItem() {
+    additionalItems.push({ desc: "", qty: "1", price: "0", disc: "", taxable: true });
+    renderWizardItems();
+  }
+
+  function renderWizardItems() {
+    const container = document.getElementById("wizItemsContainer");
+    container.innerHTML = "";
+    additionalItems.forEach((item, idx) => {
+      container.innerHTML += `
+        <div class="item-block">
+          <button class="remove-btn" onclick="removeWizardItem(${idx})">&times;</button>
+          <div class="form-group"><input type="text" placeholder="Part Name / Item" value="${escapeAttr(item.desc)}" oninput="additionalItems[${idx}].desc=this.value"></div>
+          <div class="row-3">
+            <input type="number" placeholder="Qty" value="${escapeAttr(item.qty)}" max="9999" maxlength="6" oninput="additionalItems[${idx}].qty=this.value">
+            <input type="number" placeholder="Price" value="${escapeAttr(item.price)}" max="99999" maxlength="7" oninput="additionalItems[${idx}].price=this.value">
+            <input type="number" placeholder="Disc%" value="${escapeAttr(item.disc)}" max="100" maxlength="5" oninput="additionalItems[${idx}].disc=this.value">
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  function removeWizardItem(idx) {
+    additionalItems.splice(idx, 1);
+    renderWizardItems();
+  }
+
+  function wizLoadClient() {
+    const name = document.getElementById("wizClientSelect").value;
+    if (clients[name]) {
+      document.getElementById("wizClientName").value = name;
+      document.getElementById("wizClientEmail").value = clients[name].email || "";
+      document.getElementById("wizClientAddr").value = clients[name].address || "";
+      if (clients[name].rate !== undefined && clients[name].rate !== "") {
+        document.getElementById("wizLaborRate").value = clients[name].rate;
+        document.getElementById("inputDefaultRate").value = clients[name].rate;
+      }
+    }
+  }
+
+  function initDate() {
+    const today = new Date();
+    currentYear = today.getFullYear();
+    currentMonth = today.getMonth();
+    document.getElementById("inputInvDate").value = today.toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  function getHighestInvoiceNum() {
+    let maxNum = parseInt(localStorage.getItem("invoice_last_num") || "1000", 10);
+    Object.keys(invoiceHistory).forEach(k => {
+      const p = parseInt(k, 10);
+      if (!isNaN(p) && p > maxNum) maxNum = p;
+    });
+    return maxNum;
+  }
+
+  function startNewInvoice() {
+    const newNum = getHighestInvoiceNum() + 1;
+    document.getElementById("inputInvNum").value = newNum;
+    localStorage.setItem("invoice_last_num", newNum);
+
+    selectedDates = [];
+    dateCustomData = {};
+    additionalItems = [];
+    userHasInteractedWithItems = false;
+
+    document.getElementById("inputGlobalDisc").value = "";
+    document.getElementById("inputDefaultDesc").value = "";
+    document.getElementById("inputDefaultQty").value = "";
+    document.getElementById("inputDefaultRate").value = "";
+    document.getElementById("inputLaborDisc").value = "";
+    document.getElementById("inputClientName").value = "";
+    document.getElementById("inputClientEmail").value = "";
+    document.getElementById("inputClientAddr").value = "";
+    document.getElementById("inputIsPaid").checked = false;
+    document.getElementById("dispPaidStamp").style.display = "none";
+    document.getElementById("inputPaypalUrl").value = "";
+    document.getElementById("inputInteracUrl").value = "";
+    document.getElementById("inputCustomHtmlLink").value = "";
+    document.getElementById("inputEInvoiceMode").checked = false;
+
+    initDate();
+    renderCalendar();
+    renderAdditionalItemsUI();
+    updateInvoice();
+  }
+
+  function saveCurrentInvoice(showAlert = false) {
+    const invNum = document.getElementById("inputInvNum").value.trim();
+    if (!invNum) return;
+
+    const data = {
+      invNum: invNum,
+      invDate: document.getElementById("inputInvDate").value,
+      clientName: document.getElementById("inputClientName").value,
+      clientEmail: document.getElementById("inputClientEmail").value,
+      clientAddr: document.getElementById("inputClientAddr").value,
+      currency: document.getElementById("inputCurrency").value,
+      taxName: document.getElementById("inputTaxName").value,
+      taxRate: document.getElementById("inputTaxRate").value,
+      desc: document.getElementById("inputDefaultDesc").value,
+      qty: document.getElementById("inputDefaultQty").value,
+      rate: document.getElementById("inputDefaultRate").value,
+      laborDisc: document.getElementById("inputLaborDisc").value,
+      laborTaxable: document.getElementById("inputLaborTaxable").checked,
+      selectedDates: [...selectedDates],
+      dateCustomData: dateCustomData,
+      additionalItems: [...additionalItems],
+      globalDisc: document.getElementById("inputGlobalDisc").value,
+      headerMode: document.getElementById("headerMode").value,
+      headerFont: document.getElementById("headerFont").value,
+      headerFontSize: document.getElementById("headerFontSize").value,
+      headerColor: document.getElementById("headerColor").value,
+      senderName: document.getElementById("inputSenderName").value,
+      paymentInfo: document.getElementById("inputPaymentInfo").value,
+      yourAddress: document.getElementById("inputYourAddress").value,
+      emailSubject: document.getElementById("inputEmailSubject") ? document.getElementById("inputEmailSubject").value : "",
+      emailBody: document.getElementById("inputEmailBody") ? document.getElementById("inputEmailBody").value : "",
+      paypalUrl: document.getElementById("inputPaypalUrl").value,
+      interacUrl: document.getElementById("inputInteracUrl").value,
+      customHtmlLink: document.getElementById("inputCustomHtmlLink").value,
+      eInvoiceMode: document.getElementById("inputEInvoiceMode").checked,
+      isPaid: document.getElementById("inputIsPaid").checked
+    };
+
+    invoiceHistory[invNum] = data;
+    localStorage.setItem("invoice_history", JSON.stringify(invoiceHistory));
+    populateHistorySelects();
+
+    if (showAlert) alert(`Invoice #${invNum} saved successfully!`);
+  }
+
+  function populateHistorySelects() {
+    const selects = [document.getElementById("historySelect"), document.getElementById("wizHistorySelect")];
+    selects.forEach(select => {
+      if (!select) return;
+      select.innerHTML = '<option value="">-- Select Saved Invoice --</option>';
+      Object.keys(invoiceHistory).forEach(num => {
+        const item = invoiceHistory[num];
+        const statusStr = item.isPaid ? ' [PAID]' : '';
+        select.innerHTML += `<option value="${escapeAttr(num)}">#${num} - ${escapeAttr(item.clientName || 'Draft')}${statusStr}</option>`;
+      });
+    });
+  }
+
+  function loadInvoiceFromHistory() {
+    const num = document.getElementById("historySelect").value;
+    if (!num || !invoiceHistory[num]) return;
+
+    const item = invoiceHistory[num];
+    document.getElementById("inputInvNum").value = item.invNum;
+    document.getElementById("inputInvDate").value = item.invDate || "";
+    document.getElementById("inputClientName").value = item.clientName || "";
+    document.getElementById("inputClientEmail").value = item.clientEmail || "";
+    document.getElementById("inputClientAddr").value = item.clientAddr || "";
+    document.getElementById("inputCurrency").value = item.currency || "$";
+    document.getElementById("inputTaxName").value = item.taxName || "";
+    document.getElementById("inputTaxRate").value = item.taxRate || "";
+    document.getElementById("inputDefaultDesc").value = item.desc || "";
+    document.getElementById("inputDefaultQty").value = item.qty || "";
+    document.getElementById("inputDefaultRate").value = item.rate || "";
+    document.getElementById("inputLaborDisc").value = item.laborDisc || "";
+    document.getElementById("inputLaborTaxable").checked = (item.laborTaxable !== false);
+    document.getElementById("inputGlobalDisc").value = item.globalDisc || "";
+
+    if (item.headerMode) document.getElementById("headerMode").value = item.headerMode;
+    if (item.headerFont) document.getElementById("headerFont").value = item.headerFont;
+    if (item.headerFontSize) document.getElementById("headerFontSize").value = item.headerFontSize;
+    if (item.headerColor) document.getElementById("headerColor").value = item.headerColor;
+    if (item.senderName) document.getElementById("inputSenderName").value = item.senderName;
+    if (item.paymentInfo) document.getElementById("inputPaymentInfo").value = item.paymentInfo;
+    if (item.yourAddress) document.getElementById("inputYourAddress").value = item.yourAddress;
+    if (item.emailSubject && document.getElementById("inputEmailSubject")) document.getElementById("inputEmailSubject").value = item.emailSubject;
+    if (item.emailBody && document.getElementById("inputEmailBody")) document.getElementById("inputEmailBody").value = item.emailBody;
+
+    document.getElementById("inputPaypalUrl").value = item.paypalUrl || "";
+    document.getElementById("inputInteracUrl").value = item.interacUrl || "";
+    document.getElementById("inputCustomHtmlLink").value = item.customHtmlLink || "";
+    document.getElementById("inputEInvoiceMode").checked = !!item.eInvoiceMode;
+
+    document.getElementById("inputIsPaid").checked = item.isPaid || false;
+    document.getElementById("dispPaidStamp").style.display = item.isPaid ? "block" : "none";
+
+    selectedDates = item.selectedDates || [];
+    dateCustomData = item.dateCustomData || {};
+    additionalItems = item.additionalItems || [];
+
+    userHasInteractedWithItems = (selectedDates.length > 0 || parseFloat(item.qty) > 0 || parseFloat(item.rate) > 0 || additionalItems.length > 0);
+
+    toggleHeaderMode();
+    renderCalendar();
+    renderAdditionalItemsUI();
+    updateInvoice();
+  }
+
+  function deleteInvoiceFromHistory() {
+    const num = document.getElementById("historySelect").value;
+    if (num && confirm(`Delete Invoice #${num}?`)) {
+      delete invoiceHistory[num];
+      localStorage.setItem("invoice_history", JSON.stringify(invoiceHistory));
+      populateHistorySelects();
+      startNewInvoice();
+    }
+  }
+
+  function populateClientSelects() {
+    const selects = [document.getElementById("clientSelect"), document.getElementById("wizClientSelect")];
+    selects.forEach(select => {
+      if (!select) return;
+      select.innerHTML = '<option value="">-- Saved Clients --</option>';
+      Object.keys(clients).forEach(name => {
+        select.innerHTML += `<option value="${escapeAttr(name)}">${name}</option>`;
+      });
+    });
+  }
+
+  function loadSelectedClient() {
+    const name = document.getElementById("clientSelect").value;
+    if (clients[name]) {
+      document.getElementById("inputClientName").value = name;
+      document.getElementById("inputClientEmail").value = clients[name].email || "";
+      document.getElementById("inputClientAddr").value = clients[name].address || "";
+      if (clients[name].rate !== undefined && clients[name].rate !== "") {
+        document.getElementById("inputDefaultRate").value = clients[name].rate;
+      }
+    }
+    updateInvoice();
+  }
+
+  function saveClientTemplate() {
+    const name = document.getElementById("inputClientName").value.trim();
+    if (!name) return alert("Enter Client Name to save template.");
+    clients[name] = {
+      email: document.getElementById("inputClientEmail").value.trim(),
+      address: document.getElementById("inputClientAddr").value,
+      rate: document.getElementById("inputDefaultRate").value.trim()
+    };
+    localStorage.setItem("invoice_clients", JSON.stringify(clients));
+    populateClientSelects();
+    alert(`Saved client '${name}' with rate: $${clients[name].rate || '0'}`);
+  }
+
+  function addAdditionalItem() {
+    userHasInteractedWithItems = true;
+    additionalItems.push({ desc: "", qty: "1", price: "0", disc: "", taxable: true });
+    renderAdditionalItemsUI();
+    updateInvoice();
+  }
+
+  function renderAdditionalItemsUI() {
+    const container = document.getElementById("additionalItemsContainer");
+    container.innerHTML = "";
+    additionalItems.forEach((item, index) => {
+      const itemEl = document.createElement("div");
+      itemEl.className = "item-block";
+      itemEl.innerHTML = `
+        <button class="remove-btn" onclick="removeAdditionalItem(${index})">&times;</button>
+        <div class="form-group">
+          <input type="text" placeholder="Line Item Description" value="${escapeAttr(item.desc)}" onfocus="markItemsInteracted()" oninput="updateAdditionalItem(${index}, 'desc', this.value)">
+        </div>
+        <div class="row-4">
+          <div class="form-group"><label>Qty</label><input type="number" step="0.25" value="${escapeAttr(item.qty)}" max="9999" maxlength="6" onfocus="markItemsInteracted()" oninput="updateAdditionalItem(${index}, 'qty', this.value)"></div>
+          <div class="form-group"><label>Price</label><input type="number" step="0.01" class="item-price-input" value="${escapeAttr(item.price)}" max="99999" maxlength="7" onfocus="markItemsInteracted()" oninput="updateAdditionalItem(${index}, 'price', this.value)"></div>
+          <div class="form-group"><label>Disc%</label><input type="number" step="1" value="${escapeAttr(item.disc)}" max="100" maxlength="5" onfocus="markItemsInteracted()" oninput="updateAdditionalItem(${index}, 'disc', this.value)"></div>
+          <div class="form-group" style="display:flex; flex-direction:column; justify-content:flex-end;">
+            <label style="display:flex; align-items:center; font-size:0.8rem; height: 38px;"><input type="checkbox" ${item.taxable ? 'checked' : ''} onchange="updateAdditionalItem(${index}, 'taxable', this.checked)" style="width:auto; margin-right:4px;"> Tax</label>
+          </div>
+        </div>
+      `;
+      container.appendChild(itemEl);
+    });
+  }
+
+  function updateAdditionalItem(index, key, val) {
+    userHasInteractedWithItems = true;
+    additionalItems[index][key] = val;
+    updateInvoice();
+  }
+
+  function removeAdditionalItem(index) {
+    userHasInteractedWithItems = true;
+    additionalItems.splice(index, 1);
+    renderAdditionalItemsUI();
+    updateInvoice();
+  }
+
+  function renderPersistentChips() {
+    const container = document.getElementById("chipPalette");
+    const currency = document.getElementById("inputCurrency") ? document.getElementById("inputCurrency").value : "$";
+    container.innerHTML = "";
+
+    if (persistentChips.length === 0) {
+      container.innerHTML = `<span style="font-size:0.75rem; color:#64748b; font-style:italic;">No favourites created yet. Click "+ Add Favourite" to create common fees and sales.</span>`;
+      return;
+    }
+
+    persistentChips.forEach((chip, index) => {
+      const chipEl = document.createElement("div");
+      chipEl.className = "item-chip";
+      chipEl.title = "Click to add to active invoice";
+      chipEl.onclick = () => useChipOnInvoice(index);
+      chipEl.innerHTML = `
+        <span>+ ${escapeAttr(chip.desc)}</span>
+        <span class="chip-price">${currency}${parseFloat(chip.price || 0).toFixed(2)}</span>
+        <span class="chip-delete" onclick="deleteGlobalChip(event, ${index})" title="Delete chip permanently">&times;</span>
+      `;
+      container.appendChild(chipEl);
+    });
+  }
+
+  function useChipOnInvoice(index) {
+    userHasInteractedWithItems = true;
+    const chip = persistentChips[index];
+    additionalItems.push({ desc: chip.desc, qty: "1", price: chip.price, disc: "", taxable: true });
+    renderAdditionalItemsUI();
+    updateInvoice();
+  }
+
+  function deleteGlobalChip(event, index) {
+    event.stopPropagation();
+    if (confirm(`Remove "${persistentChips[index].desc}" from your favourites?`)) {
+      persistentChips.splice(index, 1);
+      localStorage.setItem("global_chip_palette", JSON.stringify(persistentChips));
+      renderPersistentChips();
+    }
+  }
+
+  function addQuickChip() {
+    const desc = prompt("Enter item description (e.g., 'Nut and Bolt'):");
+    if (!desc || !desc.trim()) return;
+    const price = prompt("Enter default price/rate:", "1");
+    persistentChips.push({ desc: desc.trim(), price: price || "0" });
+    localStorage.setItem("global_chip_palette", JSON.stringify(persistentChips));
+    renderPersistentChips();
+  }
+
+  function changeMonth(delta) {
+    currentMonth += delta;
+    if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+    else if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+    renderCalendar();
+  }
+
+  function renderCalendar() {
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    document.getElementById("calendarMonthYear").innerText = `${monthNames[currentMonth]} ${currentYear}`;
+    const grid = document.getElementById("calendarGrid");
+    grid.innerHTML = "";
+
+    ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].forEach(d => {
+      grid.innerHTML += `<div class="calendar-day-head">${d}</div>`;
+    });
+
+    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+    for (let i = 0; i < firstDay; i++) {
+      grid.innerHTML += `<div class="calendar-day empty"></div>`;
+    }
+
+    const defaultQty = parseFloat(document.getElementById("inputDefaultQty").value) || 0;
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const isSelected = selectedDates.includes(dateKey);
+      const custom = dateCustomData[dateKey];
+      const hours = custom ? custom.qty : (defaultQty > 0 ? defaultQty : 1);
+
+      const dayEl = document.createElement("div");
+      dayEl.className = `calendar-day ${isSelected ? 'selected' : ''} ${custom ? 'has-custom' : ''}`;
+      
+      let innerHTML = `<span>${day}</span>`;
+      if (isSelected) {
+        innerHTML += `<span class="day-hours-badge">${hours}h</span>`;
+      }
+      dayEl.innerHTML = innerHTML;
+
+      let timer = null;
+      dayEl.onclick = () => {
+        if (!timer) {
+          timer = setTimeout(() => {
+            timer = null;
+            toggleDateSelection(dateKey);
+          }, 250);
+        }
+      };
+
+      dayEl.ondblclick = (e) => {
+        e.preventDefault();
+        clearTimeout(timer);
+        timer = null;
+        userHasInteractedWithItems = true;
+        if (!selectedDates.includes(dateKey)) selectedDates.push(dateKey);
+        openTimeModal(dateKey);
+      };
+
+      grid.appendChild(dayEl);
+    }
+  }
+
+  function toggleDateSelection(dateKey) {
+    userHasInteractedWithItems = true;
+    const idx = selectedDates.indexOf(dateKey);
+    if (idx > -1) {
+      selectedDates.splice(idx, 1);
+      delete dateCustomData[dateKey];
+    } else {
+      selectedDates.push(dateKey);
+    }
+    selectedDates.sort();
+    renderCalendar();
+    updateInvoice();
+  }
+
+  function formatDisplayDate(dateStr) {
+    const parts = dateStr.split("-");
+    if (parts.length !== 3) return dateStr;
+    const date = new Date(parts[0], parts[1] - 1, parts[2]);
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  function openTimeModal(dateKey) {
+    activeEditingDate = dateKey;
+    document.getElementById("modalDateTitle").innerText = `Select Working Hours for ${formatDisplayDate(dateKey)}`;
+    document.getElementById("timeModal").style.display = "flex";
+    modalActiveSlots = new Set(dateCustomData[dateKey]?.slots || []);
+    renderTimelineSlots();
+    updateModalHours();
+
+    setTimeout(() => {
+      const container = document.getElementById("timelineContainer");
+      const row6AM = container.children[6];
+      if (row6AM) {
+        container.scrollTop = row6AM.offsetTop;
+      }
+    }, 15);
+  }
+
+  function closeTimeModal() {
+    document.getElementById("timeModal").style.display = "none";
+    activeEditingDate = null;
+  }
+
+  function buildTimelineUI() {
+    const container = document.getElementById("timelineContainer");
+    container.innerHTML = "";
+
+    for (let hour = 0; hour < 24; hour++) {
+      const row = document.createElement("div");
+      row.className = "time-row";
+
+      const ampm = hour >= 12 ? "PM" : "AM";
+      const h12 = hour % 12 === 0 ? 12 : hour % 12;
+
+      const label = document.createElement("div");
+      label.className = "time-label";
+      label.innerText = `${h12} ${ampm}`;
+      row.appendChild(label);
+
+      const slotsGroup = document.createElement("div");
+      slotsGroup.className = "time-slots-group";
+
+      for (let s = 0; s < 4; s++) {
+        const slotIdx = hour * 4 + s;
+        const slotEl = document.createElement("div");
+        slotEl.className = "time-slot";
+        slotEl.dataset.slot = slotIdx;
+
+        const mins = String(s * 15).padStart(2, '0');
+        slotEl.innerText = `:${mins}`;
+
+        slotEl.onmousedown = (e) => startSlotDrag(slotIdx, e);
+        slotEl.onmouseenter = () => updateSlotDrag(slotIdx);
+        slotEl.ontouchstart = (e) => startSlotDragTouch(slotIdx, e);
+
+        slotsGroup.appendChild(slotEl);
+      }
+      row.appendChild(slotsGroup);
+      container.appendChild(row);
+    }
+  }
+
+  function renderTimelineSlots() {
+    document.querySelectorAll(".time-slot").forEach(slotEl => {
+      const idx = parseInt(slotEl.dataset.slot, 10);
+      slotEl.classList.toggle("active", modalActiveSlots.has(idx));
+    });
+  }
+
+  function startSlotDrag(slotIdx, event) {
+    event.preventDefault();
+    isDraggingSlots = true;
+    dragSetState = !modalActiveSlots.has(slotIdx);
+    toggleSlot(slotIdx, dragSetState);
+  }
+
+  function updateSlotDrag(slotIdx) {
+    if (isDraggingSlots) {
+      toggleSlot(slotIdx, dragSetState);
+    }
+  }
+
+  function startSlotDragTouch(slotIdx, event) {
+    let touchMoved = false;
+    const startY = event.touches[0].clientY;
+
+    const touchMoveHandler = (e) => {
+      const touch = e.touches[0];
+      if (Math.abs(touch.clientY - startY) > 8) {
+        touchMoved = true;
+      }
+    };
+
+    const touchEndHandler = () => {
+      window.removeEventListener("touchmove", touchMoveHandler);
+      window.removeEventListener("touchend", touchEndHandler);
+      if (!touchMoved) {
+        dragSetState = !modalActiveSlots.has(slotIdx);
+        toggleSlot(slotIdx, dragSetState);
+      }
+      isDraggingSlots = false;
+    };
+
+    window.addEventListener("touchmove", touchMoveHandler, { passive: true });
+    window.addEventListener("touchend", touchEndHandler);
+  }
+
+  function handleGlobalMouseUp() {
+    isDraggingSlots = false;
+  }
+
+  function toggleSlot(slotIdx, state) {
+    if (state) modalActiveSlots.add(slotIdx);
+    else modalActiveSlots.delete(slotIdx);
+    renderTimelineSlots();
+    updateModalHours();
+  }
+
+  function clearTimelineSlots() {
+    modalActiveSlots.clear();
+    renderTimelineSlots();
+    updateModalHours();
+  }
+
+  function updateModalHours() {
+    const totalHours = modalActiveSlots.size * 0.25;
+    document.getElementById("modalTotalHours").innerText = totalHours.toFixed(2);
+  }
+
+  function saveTimelineSlots() {
+    if (!activeEditingDate) return;
+    userHasInteractedWithItems = true;
+    const totalHours = modalActiveSlots.size * 0.25;
+    dateCustomData[activeEditingDate] = {
+      qty: totalHours,
+      slots: Array.from(modalActiveSlots)
+    };
+    closeTimeModal();
+    renderCalendar();
+    updateInvoice();
+  }
+
+
+  function showAppToast(message, duration = 5000) {
+    const toast = document.getElementById("appToast");
+    if (!toast) return;
+    toast.textContent = message;
+    toast.classList.add("show");
+    clearTimeout(toast._hideTimer);
+    toast._hideTimer = setTimeout(() => toast.classList.remove("show"), duration);
+  }
+
+  function generatePDFAndEmail() {
+    saveCurrentInvoice();
+
+    const clientEmail = document.getElementById("inputClientEmail").value.trim();
+    if (!clientEmail) {
+      alert("Please enter a Client Email Address first.");
+      return;
+    }
+
+    // Validate the address without URI-encoding the @ delimiter.
+    const emailMatch = clientEmail.match(/^[^\s@]+@[^\s@]+$/);
+    if (!emailMatch) {
+      alert("Please enter a valid Client Email Address.");
+      return;
+    }
+
+    const invNum = document.getElementById("inputInvNum").value.trim() || "Draft";
+    const senderName = document.getElementById("inputSenderName").value.trim() || "Sender";
+    const clientName = document.getElementById("inputClientName").value.trim() || "Client";
+    const invDate = document.getElementById("inputInvDate").value.trim().replace(/[/\\?%*:|"<>]/g, '-');
+    const grandTotalVal = document.getElementById("dispGrandTotal").innerText;
+
+    const cleanSender = senderName.replace(/[/\\?%*:|"<>]/g, '');
+    const cleanClient = clientName.replace(/[/\\?%*:|"<>]/g, '');
+    document.title = `Invoice_${invNum}_${cleanSender}_${cleanClient}_${invDate}`;
+
+    let subject = document.getElementById("inputEmailSubject")
+      ? document.getElementById("inputEmailSubject").value
+      : "Invoice #{invNum}";
+
+    let body = document.getElementById("inputEmailBody")
+      ? document.getElementById("inputEmailBody").value
+      : "Please find your invoice #{invNum}.\n\nThank you,\n{senderName}";
+
+    let payLinksText = "";
+    const paypalUrl = document.getElementById("inputPaypalUrl").value.trim().replace(/{amount}/g, grandTotalVal);
+    const interacUrl = document.getElementById("inputInteracUrl").value.trim().replace(/{amount}/g, grandTotalVal);
+
+    if (paypalUrl) payLinksText += `Pay with PayPal: ${paypalUrl}\n`;
+    if (interacUrl) payLinksText += `Pay via Interac/Direct: ${interacUrl}\n`;
+
+    subject = subject.replace(/{invNum}/g, invNum)
+      .replace(/{invDate}/g, invDate)
+      .replace(/{senderName}/g, senderName)
+      .replace(/{clientName}/g, clientName);
+
+    body = body.replace(/{invNum}/g, invNum)
+      .replace(/{invDate}/g, invDate)
+      .replace(/{senderName}/g, senderName)
+      .replace(/{clientName}/g, clientName)
+      .replace(/{paymentLinks}/g, payLinksText);
+
+    // RFC 6068: keep the @ in the addr-spec and encode the message fields.
+    const mailtoUrl = `mailto:${clientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    // Use a genuine mailto anchor instead of assigning window.location after a timeout.
+    // This is considerably more interoperable with browser mail handlers.
+    const mailLink = document.createElement("a");
+    mailLink.href = mailtoUrl;
+    mailLink.style.display = "none";
+    mailLink.setAttribute("aria-hidden", "true");
+    document.body.appendChild(mailLink);
+
+    const isEInvoice = document.getElementById("inputEInvoiceMode").checked;
+
+    // Launch the default mail client immediately while the click is still inside
+    // the original user gesture, then show a reminder once the handoff has begun.
+    mailLink.click();
+    mailLink.remove();
+    setTimeout(() => {
+      showAppToast("Loading default mail client - Don't forget to attach your invoice!");
+    }, 100);
+
+    if (isEInvoice) return;
+
+    // Keep printing inside the original user gesture. Mobile Safari/Chrome can
+    // reject delayed window.print() calls because they no longer have activation.
+    window.print();
+  }
+
+  function openSystemPrinterPDF() {
+    saveCurrentInvoice();
+
+    const invNum = document.getElementById("inputInvNum").value.trim() || "Draft";
+    const senderName = document.getElementById("inputSenderName").value.trim() || "Sender";
+    const clientName = document.getElementById("inputClientName").value.trim() || "Client";
+    const invDate = document.getElementById("inputInvDate").value.trim().replace(/[/\\?%*:|"<>]/g, '-');
+
+    const cleanSender = senderName.replace(/[/\\?%*:|"<>]/g, '');
+    const cleanClient = clientName.replace(/[/\\?%*:|"<>]/g, '');
+
+    document.title = `Invoice_${invNum}_${cleanSender}_${cleanClient}_${invDate}`;
+
+    // Use the browser's native print pipeline. This is supported by desktop
+    // browsers and by Android/iOS browser print sheets without creating a
+    // popup, iframe, Blob or downloadable PDF that mobile browsers may block.
+    window.print();
+  }
+
+
+  function openExportCsvModal() {
+    saveCurrentInvoice();
+    document.getElementById("exportCsvModal").style.display = "flex";
+  }
+
+  function closeExportCsvModal() {
+    document.getElementById("exportCsvModal").style.display = "none";
+  }
+
+  function generateAndDownloadCsv() {
+    const startDateInput = document.getElementById("exportStartDate").value;
+    const endDateInput = document.getElementById("exportEndDate").value;
+    const statusFilter = document.getElementById("exportStatusSelect").value;
+
+    const startDate = startDateInput ? new Date(startDateInput + "T00:00:00") : null;
+    const endDate = endDateInput ? new Date(endDateInput + "T23:59:59") : null;
+
+    let csvRows = [];
+    csvRows.push([
+      "Invoice Number", "Invoice Date", "Client Name", "Client Email", "Payment Status",
+      "Item Type", "Description", "Qty / Hours", "Rate / Price", "Discount %",
+      "Taxable", "Line Total", "Invoice Subtotal", "Invoice Tax", "Invoice Grand Total", "Currency"
+    ]);
+
+    const cleanField = (str) => `"${String(str || '').replace(/"/g, '""')}"`;
+    let totalExportedInvoices = 0;
+
+    Object.keys(invoiceHistory).forEach(num => {
+      const inv = invoiceHistory[num];
+      const isPaid = !!inv.isPaid;
+
+      if (statusFilter === "paid" && !isPaid) return;
+      if (statusFilter === "unpaid" && isPaid) return;
+
+      if (inv.invDate) {
+        const invDateObj = new Date(inv.invDate);
+        if (!isNaN(invDateObj.getTime())) {
+          if (startDate && invDateObj < startDate) return;
+          if (endDate && invDateObj > endDate) return;
+        }
+      }
+
+      totalExportedInvoices++;
+
+      const invTotals = calculateDetailedInvoiceTotal(inv);
+      const statusText = isPaid ? "PAID" : "UNPAID";
+      const currency = inv.currency || "$";
+
+      const defaultQty = parseFloat(inv.qty) || 0;
+      const defaultRate = parseFloat(inv.rate) || 0;
+      const laborDisc = parseFloat(inv.laborDisc) || 0;
+      const defaultDesc = inv.desc || "Labor Services";
+
+      let lineItemExported = false;
+
+      if (inv.selectedDates && inv.selectedDates.length > 0) {
+        inv.selectedDates.forEach(d => {
+          lineItemExported = true;
+          const custom = inv.dateCustomData ? inv.dateCustomData[d] : null;
+          const q = custom ? custom.qty : (defaultQty > 0 ? defaultQty : 1);
+          const gross = q * defaultRate;
+          const lineTotal = gross - (gross * (laborDisc / 100));
+          csvRows.push([
+            cleanField(inv.invNum), cleanField(d || inv.invDate), cleanField(inv.clientName),
+            cleanField(inv.clientEmail), cleanField(statusText), cleanField("Labor"),
+            cleanField(defaultDesc), q, defaultRate, laborDisc,
+            inv.laborTaxable !== false ? "Yes" : "No", lineTotal.toFixed(2),
+            invTotals.subtotal.toFixed(2), invTotals.taxAmt.toFixed(2),
+            invTotals.grandTotal.toFixed(2), cleanField(currency)
+          ]);
+        });
+      } else if (defaultQty > 0) {
+        lineItemExported = true;
+        const gross = defaultQty * defaultRate;
+        const lineTotal = gross - (gross * (laborDisc / 100));
+        csvRows.push([
+          cleanField(inv.invNum), cleanField(inv.invDate), cleanField(inv.clientName),
+          cleanField(inv.clientEmail), cleanField(statusText), cleanField("Labor"),
+          cleanField(defaultDesc), defaultQty, defaultRate, laborDisc,
+          inv.laborTaxable !== false ? "Yes" : "No", lineTotal.toFixed(2),
+          invTotals.subtotal.toFixed(2), invTotals.taxAmt.toFixed(2),
+          invTotals.grandTotal.toFixed(2), cleanField(currency)
+        ]);
+      }
+
+      if (inv.additionalItems && inv.additionalItems.length > 0) {
+        inv.additionalItems.forEach(item => {
+          lineItemExported = true;
+          const q = parseFloat(item.qty) || 0;
+          const p = parseFloat(item.price) || 0;
+          const d = parseFloat(item.disc) || 0;
+          const gross = q * p;
+          const lineTotal = gross - (gross * (d / 100));
+          csvRows.push([
+            cleanField(inv.invNum), cleanField(inv.invDate), cleanField(inv.clientName),
+            cleanField(inv.clientEmail), cleanField(statusText), cleanField("Part / Item"),
+            cleanField(item.desc || "Line Item"), q, p, d,
+            item.taxable ? "Yes" : "No", lineTotal.toFixed(2),
+            invTotals.subtotal.toFixed(2), invTotals.taxAmt.toFixed(2),
+            invTotals.grandTotal.toFixed(2), cleanField(currency)
+          ]);
+        });
+      }
+
+      if (!lineItemExported) {
+        csvRows.push([
+          cleanField(inv.invNum), cleanField(inv.invDate), cleanField(inv.clientName),
+          cleanField(inv.clientEmail), cleanField(statusText), cleanField("N/A"),
+          cleanField("No Items"), 0, 0, 0, "No", "0.00",
+          invTotals.subtotal.toFixed(2), invTotals.taxAmt.toFixed(2),
+          invTotals.grandTotal.toFixed(2), cleanField(currency)
+        ]);
+      }
+    });
+
+    if (totalExportedInvoices === 0) {
+      alert("No invoices matched your export filter.");
+      return;
+    }
+
+    const csvString = csvRows.map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Invoices_Export_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    closeExportCsvModal();
+  }
+
+  function validatePriceFields() {
+    const rateInput = document.getElementById("inputDefaultRate");
+    const defaultQtyInput = document.getElementById("inputDefaultQty");
+    const hasSelectedDates = selectedDates.length > 0;
+    const qtyValue = parseFloat(defaultQtyInput.value);
+    const rateValue = parseFloat(rateInput.value);
+    const laborNeedsRate = hasSelectedDates || (!isNaN(qtyValue) && qtyValue > 0);
+
+    rateInput.classList.toggle("input-error", laborNeedsRate && (isNaN(rateValue) || rateValue <= 0));
+
+    document.querySelectorAll(".item-price-input").forEach((priceInput, index) => {
+      const item = additionalItems[index];
+      if (!item) return;
+      const itemQty = parseFloat(item.qty);
+      const itemPrice = parseFloat(item.price);
+      const itemNeedsPrice = !isNaN(itemQty) && itemQty > 0;
+      priceInput.classList.toggle("input-error", itemNeedsPrice && (isNaN(itemPrice) || itemPrice <= 0));
+    });
+  }
+
+  function updateInvoice() {
+    const currency = document.getElementById("inputCurrency").value;
+    document.querySelectorAll(".curr").forEach(el => el.innerText = currency);
+
+    const senderName = document.getElementById("inputSenderName").value || "Your Business Name";
+    const font = document.getElementById("headerFont").value;
+    const fontSize = document.getElementById("headerFontSize").value;
+    const fontColor = document.getElementById("headerColor").value;
+
+    const dispSender = document.getElementById("dispSenderName");
+    dispSender.innerText = senderName;
+    dispSender.style.fontFamily = font;
+    dispSender.style.fontSize = fontSize + "px";
+    dispSender.style.color = fontColor;
+
+    document.getElementById("dispInvNum").innerText = document.getElementById("inputInvNum").value || "1001";
+    document.getElementById("dispInvDate").innerText = document.getElementById("inputInvDate").value || "";
+    document.getElementById("dispClientName").innerText = document.getElementById("inputClientName").value || "CLIENT NAME";
+    document.getElementById("dispClientAddr").innerText = document.getElementById("inputClientAddr").value || "";
+
+    const tbody = document.getElementById("dispTableBody");
+    tbody.innerHTML = "";
+
+    let subtotal = 0;
+    let totalTaxableSub = 0;
+
+    const defaultDesc = document.getElementById("inputDefaultDesc").value || "Consulting / Labor";
+    const defaultQty = parseFloat(document.getElementById("inputDefaultQty").value) || 0;
+    const defaultRate = parseFloat(document.getElementById("inputDefaultRate").value) || 0;
+    const laborDisc = parseFloat(document.getElementById("inputLaborDisc").value) || 0;
+    const laborTaxable = document.getElementById("inputLaborTaxable").checked;
+
+    if (selectedDates.length > 0) {
+      selectedDates.forEach(d => {
+        const custom = dateCustomData[d];
+        const q = custom ? custom.qty : (defaultQty > 0 ? defaultQty : 1);
+        const gross = q * defaultRate;
+        const lineTotal = gross - (gross * (laborDisc / 100));
+        subtotal += lineTotal;
+        if (laborTaxable) totalTaxableSub += lineTotal;
+
+        tbody.innerHTML += `
+          <tr>
+            <td class="col-date">${formatDisplayDate(d)}</td>
+            <td class="col-desc">${escapeAttr(defaultDesc)}</td>
+            <td class="col-qty">${q}</td>
+            <td class="col-price">${currency}${defaultRate.toFixed(2)}</td>
+            <td class="col-disc">${laborDisc ? laborDisc + '%' : '-'}</td>
+            <td class="col-tax">${laborTaxable ? 'Yes' : 'No'}</td>
+            <td class="col-total">${currency}${lineTotal.toFixed(2)}</td>
+          </tr>
+        `;
+      });
+    } else if (defaultQty > 0 || userHasInteractedWithItems) {
+      if (defaultQty > 0) {
+        const gross = defaultQty * defaultRate;
+        const lineTotal = gross - (gross * (laborDisc / 100));
+        subtotal += lineTotal;
+        if (laborTaxable) totalTaxableSub += lineTotal;
+
+        tbody.innerHTML += `
+          <tr>
+            <td class="col-date">-</td>
+            <td class="col-desc">${escapeAttr(defaultDesc)}</td>
+            <td class="col-qty">${defaultQty}</td>
+            <td class="col-price">${currency}${defaultRate.toFixed(2)}</td>
+            <td class="col-disc">${laborDisc ? laborDisc + '%' : '-'}</td>
+            <td class="col-tax">${laborTaxable ? 'Yes' : 'No'}</td>
+            <td class="col-total">${currency}${lineTotal.toFixed(2)}</td>
+          </tr>
+        `;
+      }
+    }
+
+    additionalItems.forEach(item => {
+      const q = parseFloat(item.qty) || 0;
+      const p = parseFloat(item.price) || 0;
+      const d = parseFloat(item.disc) || 0;
+      const gross = q * p;
+      const lineTotal = gross - (gross * (d / 100));
+      subtotal += lineTotal;
+      if (item.taxable) totalTaxableSub += lineTotal;
+
+      tbody.innerHTML += `
+        <tr>
+          <td class="col-date">-</td>
+          <td class="col-desc">${escapeAttr(item.desc || 'Line Item')}</td>
+          <td class="col-qty">${q}</td>
+          <td class="col-price">${currency}${p.toFixed(2)}</td>
+          <td class="col-disc">${d ? d + '%' : '-'}</td>
+          <td class="col-tax">${item.taxable ? 'Yes' : 'No'}</td>
+          <td class="col-total">${currency}${lineTotal.toFixed(2)}</td>
+        </tr>
+      `;
+    });
+
+    document.getElementById("dispSubtotal").innerText = subtotal.toFixed(2);
+
+    const globalDiscRate = parseFloat(document.getElementById("inputGlobalDisc").value) || 0;
+    const globalDiscAmt = subtotal * (globalDiscRate / 100);
+    const subAfterGlobalDisc = subtotal - globalDiscAmt;
+
+    const globalDiscRow = document.getElementById("globalDiscRow");
+    if (globalDiscRate > 0) {
+      globalDiscRow.style.display = "flex";
+      document.getElementById("dispGlobalDiscRate").innerText = globalDiscRate;
+      document.getElementById("dispGlobalDiscAmt").innerText = globalDiscAmt.toFixed(2);
+    } else {
+      globalDiscRow.style.display = "none";
+    }
+
+    const taxName = document.getElementById("inputTaxName").value || "Tax";
+    const taxRate = parseFloat(document.getElementById("inputTaxRate").value) || 0;
+    const taxableRatio = subtotal > 0 ? (totalTaxableSub / subtotal) : 0;
+    const taxAmt = (subAfterGlobalDisc * taxableRatio) * (taxRate / 100);
+
+    const taxRow = document.getElementById("taxRow");
+    if (taxRate > 0) {
+      taxRow.style.display = "flex";
+      document.getElementById("dispTaxNameLabel").innerText = taxName;
+      document.getElementById("dispTaxRateLabel").innerText = taxRate;
+      document.getElementById("dispTaxAmt").innerText = taxAmt.toFixed(2);
+    } else {
+      taxRow.style.display = "none";
+    }
+
+    const grandTotal = subAfterGlobalDisc + taxAmt;
+    document.getElementById("dispGrandTotal").innerText = grandTotal.toFixed(2);
+
+    validatePriceFields();
+
+    const paymentInfo = document.getElementById("inputPaymentInfo").value;
+    const blockPaymentInfo = document.getElementById("blockPaymentInfo");
+    if (paymentInfo.trim()) {
+      blockPaymentInfo.style.display = "block";
+      document.getElementById("dispPaymentInfo").innerText = paymentInfo;
+    } else {
+      blockPaymentInfo.style.display = "none";
+    }
+
+    const yourAddress = document.getElementById("inputYourAddress").value;
+    const blockYourAddress = document.getElementById("blockYourAddress");
+    if (yourAddress.trim()) {
+      blockYourAddress.style.display = "block";
+      document.getElementById("dispYourAddress").innerText = yourAddress;
+    } else {
+      blockYourAddress.style.display = "none";
+    }
+
+    const blockPaymentIcons = document.getElementById("blockPaymentIcons");
+    const dispQrContainer = document.getElementById("dispQrContainer");
+    if (qrBase64) {
+      dispQrContainer.style.display = "block";
+      document.getElementById("dispQrImg").src = qrBase64;
+    } else {
+      dispQrContainer.style.display = "none";
+    }
+
+    const buttonsContainer = document.getElementById("dispPaymentButtonsContainer");
+    buttonsContainer.innerHTML = "";
+
+    const paypalUrl = document.getElementById("inputPaypalUrl").value.trim().replace(/{amount}/g, grandTotal.toFixed(2));
+    const interacUrl = document.getElementById("inputInteracUrl").value.trim().replace(/{amount}/g, grandTotal.toFixed(2));
+    const customHtml = document.getElementById("inputCustomHtmlLink").value.trim();
+
+    if (paypalUrl) {
+      buttonsContainer.innerHTML += `<a href="${escapeAttr(paypalUrl)}" target="_blank" class="payment-btn payment-btn-paypal">Pay via PayPal</a>`;
+    }
+    if (interacUrl) {
+      buttonsContainer.innerHTML += `<a href="${escapeAttr(interacUrl)}" target="_blank" class="payment-btn payment-btn-interac">Pay via Interac / Direct</a>`;
+    }
+    if (customHtml) {
+      buttonsContainer.innerHTML += customHtml;
+    }
+
+    if (qrBase64 || paypalUrl || interacUrl || customHtml) {
+      blockPaymentIcons.style.display = "block";
+    } else {
+      blockPaymentIcons.style.display = "none";
+    }
+  }
+</script>
+</body>
+</html>
