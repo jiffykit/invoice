@@ -2157,16 +2157,60 @@ Best regards,
     // and some Android browsers treat the mailto hand-off as navigation and
     // consume the click's user-activation token. A later window.print() is then
     // silently ignored. Printing first keeps it inside the original tap/click.
-    const launchMailAfterPrint = () => {
+    // Mobile Safari/Chrome do not consistently fire `afterprint`. Use the first
+    // reliable signal that printing has returned control to the page: afterprint,
+    // visibility restoration, or focus restoration after the print UI closes.
+    let printUiWasExited = false;
+    let mailLaunched = false;
+    let fallbackTimer = null;
+
+    const cleanupPrintListeners = () => {
       window.removeEventListener("afterprint", launchMailAfterPrint);
-      mailLink.click();
-      mailLink.remove();
-      setTimeout(() => {
-        showAppToast("Loading default mail client - Don't forget to attach your invoice!");
-      }, 100);
+      document.removeEventListener("visibilitychange", handlePrintVisibility);
+      window.removeEventListener("focus", handlePrintFocus);
+      if (fallbackTimer) {
+        clearTimeout(fallbackTimer);
+        fallbackTimer = null;
+      }
     };
 
-    window.addEventListener("afterprint", launchMailAfterPrint, { once: true });
+    const launchMailAfterPrint = () => {
+      if (mailLaunched) return;
+      mailLaunched = true;
+      cleanupPrintListeners();
+      // Use a real mailto navigation after printing. Safari can reject a
+      // synthetic anchor click once the print UI has taken over.
+      mailLink.remove();
+      window.location.href = mailtoUrl;
+    };
+
+    const handlePrintVisibility = () => {
+      // Printing commonly hides the document; launch the mail client when the
+      // page becomes visible again after that hidden state.
+      if (document.visibilityState === "hidden") {
+        printUiWasExited = true;
+      } else if (printUiWasExited) {
+        setTimeout(launchMailAfterPrint, 250);
+      }
+    };
+
+    const handlePrintFocus = () => {
+      if (printUiWasExited) {
+        setTimeout(launchMailAfterPrint, 250);
+      }
+    };
+
+    window.addEventListener("afterprint", launchMailAfterPrint);
+    document.addEventListener("visibilitychange", handlePrintVisibility);
+    window.addEventListener("focus", handlePrintFocus);
+
+    // Safety fallback for browsers that generate the PDF but expose neither
+    // afterprint nor a visibility/focus transition. This only starts after a
+    // realistic print-preview window has had time to complete.
+    fallbackTimer = setTimeout(() => {
+      if (!mailLaunched) launchMailAfterPrint();
+    }, 15000);
+
     window.print();
   }
 
