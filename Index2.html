@@ -2143,18 +2143,30 @@ Best regards,
 
     const isEInvoice = document.getElementById("inputEInvoiceMode").checked;
 
-    // Launch the default mail client immediately while the click is still inside
-    // the original user gesture, then show a reminder once the handoff has begun.
-    mailLink.click();
-    mailLink.remove();
-    setTimeout(() => {
-      showAppToast("Loading default mail client - Don't forget to attach your invoice!");
-    }, 100);
+    if (isEInvoice) {
+      // E-invoice mode intentionally only opens the mail client.
+      mailLink.click();
+      mailLink.remove();
+      setTimeout(() => {
+        showAppToast("Loading default mail client...");
+      }, 100);
+      return;
+    }
 
-    if (isEInvoice) return;
+    // IMPORTANT: invoke native printing BEFORE opening mailto. Safari/iOS/macOS
+    // and some Android browsers treat the mailto hand-off as navigation and
+    // consume the click's user-activation token. A later window.print() is then
+    // silently ignored. Printing first keeps it inside the original tap/click.
+    const launchMailAfterPrint = () => {
+      window.removeEventListener("afterprint", launchMailAfterPrint);
+      mailLink.click();
+      mailLink.remove();
+      setTimeout(() => {
+        showAppToast("Loading default mail client - Don't forget to attach your invoice!");
+      }, 100);
+    };
 
-    // Keep printing inside the original user gesture. Mobile Safari/Chrome can
-    // reject delayed window.print() calls because they no longer have activation.
+    window.addEventListener("afterprint", launchMailAfterPrint, { once: true });
     window.print();
   }
 
