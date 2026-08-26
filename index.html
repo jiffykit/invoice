@@ -135,7 +135,7 @@
       cursor: pointer;
     }
 
-    .form-group input.input-error {
+    input.input-error {
       border-color: #ef4444 !important;
       background-color: #fef2f2 !important;
       box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important;
@@ -342,13 +342,13 @@
 
     .col-date { width: 15%; } .col-desc { width: 33%; } .col-qty { width: 10%; text-align: right; }
     .col-price { width: 12%; text-align: right; } .col-disc { width: 10%; text-align: right; }
-    .col-tax { width: 8%; text-align: center; } .col-total { width: 12%; text-align: right; }
-    table.inv-table th.col-qty, table.inv-table th.col-price, table.inv-table th.col-disc, table.inv-table th.col-total { text-align: right; }
-    table.inv-table th.col-tax { text-align: center; }
+    .col-tax { width: 10%; text-align: right; } .col-total { width: 12%; text-align: right; }
+    table.inv-table th.col-qty, table.inv-table th.col-price, table.inv-table th.col-disc, table.inv-table th.col-tax, table.inv-table th.col-total { text-align: right; }
 
-    .totals-box { width: 280px; margin-left: auto; margin-bottom: 30px; }
+    .totals-box { width: 320px; margin-left: auto; margin-bottom: 30px; }
     .totals-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.95rem; }
     .totals-row.discount-row { color: #059669; }
+    .totals-row.converted-row { color: #2563eb; font-weight: bold; border-top: 1px dashed #cbd5e1; margin-top: 4px; padding-top: 6px; }
     .grand-total-row { display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: bold; margin-top: 8px; padding-top: 8px; border-top: 2px solid #000; }
 
     .inv-footer { font-size: 0.85rem; line-height: 1.5; clear: both; }
@@ -419,7 +419,7 @@
       }
       .inv-header { flex-direction: row !important; align-items: flex-start !important; }
       .inv-number-title { text-align: right !important; }
-      .totals-box { width: 280px !important; margin-left: auto !important; }
+      .totals-box { width: 320px !important; margin-left: auto !important; }
       table.inv-table { min-width: 0 !important; width: 100% !important; }
       .payment-btn, .payment-btn-paypal, .payment-btn-interac, .payment-btn-custom {
         -webkit-print-color-adjust: exact !important;
@@ -478,7 +478,7 @@
         <div class="form-group" style="background:#f8fafc; padding:10px; border:1px solid var(--border); border-radius:6px;">
           <label style="display:flex; align-items:center; font-size:0.9rem; font-weight:bold; cursor:pointer; color:#dc2626;">
             <input type="checkbox" id="inputIsPaid" onchange="togglePaidStatus()" style="width:18px; height:18px; margin-right:8px; cursor:pointer;">
-            Mark Invoice as PAID
+            Mark Document as PAID
           </label>
         </div>
 
@@ -490,17 +490,33 @@
     </details>
 
     <details class="sidebar-section">
-      <summary>2. Regional, Tax & Reminder Settings</summary>
+      <summary>2. Regional, Tax, Currency & Settings</summary>
       <div class="sidebar-content">
+        <div class="row-2">
+          <div class="form-group">
+            <label>Document Type</label>
+            <select id="inputDocType" onchange="updateInvoice()">
+              <option value="Invoice">Invoice</option>
+              <option value="Quote">Quote</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Date Format</label>
+            <select id="inputDateFormat" onchange="updateInvoice()">
+              <option value="MMM D, YYYY">MMM D, YYYY (Oct 24, 2026)</option>
+              <option value="MM-DD-YY">MM-DD-YY (10-24-26)</option>
+              <option value="DD-MM-YY">DD-MM-YY (24-10-26)</option>
+              <option value="DD-MM-YYYY">DD-MM-YYYY (24-10-2026)</option>
+              <option value="MM/DD/YYYY">MM/DD/YYYY (10/24/2026)</option>
+              <option value="YYYY-MM-DD">YYYY-MM-DD (2026-10-24)</option>
+            </select>
+          </div>
+        </div>
+
         <div class="row-3">
           <div class="form-group">
             <label>Currency</label>
-            <select id="inputCurrency" onchange="updateInvoice()">
-              <option value="$">USD / CAD ($)</option>
-              <option value="£">GBP (£)</option>
-              <option value="€">EUR (€)</option>
-              <option value="¥">JPY (¥)</option>
-            </select>
+            <input type="text" id="inputCurrency" value="$" placeholder="$, CAD, NZD, KRW" oninput="updateInvoice()">
           </div>
           <div class="form-group">
             <label>Tax Name</label>
@@ -509,6 +525,23 @@
           <div class="form-group">
             <label>Tax Rate %</label>
             <input type="number" step="0.1" id="inputTaxRate" placeholder="13" max="100" maxlength="5" oninput="updateInvoice()">
+          </div>
+        </div>
+
+        <div class="form-group" style="background:#f8fafc; padding:10px; border:1px solid var(--border); border-radius:6px; margin-bottom:12px;">
+          <label style="display:flex; align-items:center; font-size:0.85rem; font-weight:bold; cursor:pointer;">
+            <input type="checkbox" id="inputEnableConversion" onchange="toggleConversionUI(); updateInvoice()" style="margin-right:8px;">
+            Convert to Another Currency
+          </label>
+          <div id="conversionFieldsUI" style="display:none; margin-top:10px;" class="row-2">
+            <div class="form-group" style="margin-bottom:0;">
+              <label>Target Currency</label>
+              <input type="text" id="inputTargetCurrency" placeholder="KRW, NZD, ₩" oninput="updateInvoice()">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label>Exchange Rate</label>
+              <input type="number" step="0.0001" id="inputExchangeRate" placeholder="e.g. 980.5" oninput="updateInvoice()">
+            </div>
           </div>
         </div>
 
@@ -585,11 +618,11 @@
     </details>
 
     <details open class="sidebar-section">
-      <summary>4. Invoice Details & Labor</summary>
+      <summary>4. Details & Labor</summary>
       <div class="sidebar-content">
         <div class="row-2">
-          <div class="form-group"><label>Invoice #</label><input type="text" id="inputInvNum" placeholder="1001" oninput="updateInvoice()"></div>
-          <div class="form-group"><label>Invoice Date</label><input type="text" id="inputInvDate" placeholder="Oct 24, 2026" oninput="updateInvoice()"></div>
+          <div class="form-group"><label id="labelInvNum">Invoice #</label><input type="text" id="inputInvNum" placeholder="1001" oninput="updateInvoice()"></div>
+          <div class="form-group"><label id="labelInvDate">Invoice Date</label><input type="text" id="inputInvDate" placeholder="Oct 24, 2026" oninput="updateInvoice()"></div>
         </div>
 
         <div class="form-group">
@@ -650,14 +683,14 @@
 
         <div class="form-group">
           <label>Email Subject Template</label>
-          <input type="text" id="inputEmailSubject" value="Invoice #{invNum} from {senderName}" oninput="saveCurrentInvoice()">
+          <input type="text" id="inputEmailSubject" value="{docType} #{invNum} from {senderName}" oninput="saveCurrentInvoice()">
         </div>
 
         <div class="form-group">
           <label>Email Message Body Template</label>
           <textarea id="inputEmailBody" rows="4" oninput="saveCurrentInvoice()">Hi {clientName},
 
-Please find attached my invoice #{invNum} dated {invDate}.
+Please find attached my {docType} #{invNum} dated {invDate}.
 
 {paymentLinks}
 
@@ -696,7 +729,7 @@ Best regards,
         <div class="form-group" style="background:#f8fafc; padding:10px; border:1px solid var(--border); border-radius:6px;">
           <label style="display:flex; align-items:center; font-size:0.88rem; font-weight:bold; cursor:pointer;">
             <input type="checkbox" id="inputEInvoiceMode" onchange="updateInvoice()" style="width:18px; height:18px; margin-right:8px; cursor:pointer;">
-            Send Direct E-Invoice Email (Inline links instead of PDF attach)
+            Send Direct E-Email (Inline links instead of PDF attach)
           </label>
         </div>
       </div>
@@ -706,10 +739,10 @@ Best regards,
       <summary>9. Print & Save</summary>
       <div class="sidebar-content">
         <div style="display:flex; flex-direction:column; gap:10px;">
-          <button class="btn btn-email" onclick="generatePDFAndEmail()">Print PDF & Email Client</button>
-          <button class="btn btn-warning" onclick="checkOverdueInvoices(true)">Check Overdue Invoices Alarm</button>
+          <button class="btn btn-email" id="btnEmailClient" onclick="generatePDFAndEmail()">Print PDF & Email Client</button>
+          <button class="btn btn-warning" onclick="checkOverdueInvoices(true)">Check Overdue Unpaid Alarm</button>
           <button class="btn btn-primary" onclick="openSystemPrinterPDF()">Print / Save as PDF Only</button>
-          <button class="btn btn-success" onclick="openExportCsvModal()">Export CSV (All Invoices / Filtered)</button>
+          <button class="btn btn-success" onclick="openExportCsvModal()">Export CSV (All Saved Items)</button>
         </div>
       </div>
     </details>
@@ -738,7 +771,7 @@ Best regards,
             <span id="dispInvDate">Date</span>
           </div>
           <div class="inv-number-title">
-            Invoice No. <span id="dispInvNum">1001</span>
+            <span id="dispDocTypeHeader">Invoice</span> No. <span id="dispInvNum">1001</span>
           </div>
         </div>
 
@@ -749,17 +782,7 @@ Best regards,
 
         <div class="table-responsive">
           <table class="inv-table">
-            <thead>
-              <tr>
-                <th class="col-date">Date</th>
-                <th class="col-desc">Description</th>
-                <th class="col-qty">Hrs / Qty</th>
-                <th class="col-price">Rate</th>
-                <th class="col-disc">Disc %</th>
-                <th class="col-tax">Tax</th>
-                <th class="col-total">Total</th>
-              </tr>
-            </thead>
+            <thead id="dispTableHead"></thead>
             <tbody id="dispTableBody"></tbody>
           </table>
         </div>
@@ -780,6 +803,10 @@ Best regards,
           <div class="grand-total-row">
             <span>Total:</span>
             <span><span class="curr"></span><span id="dispGrandTotal">0.00</span></span>
+          </div>
+          <div class="totals-row converted-row" id="dispConvertedTotalRow" style="display:none;">
+            <span>Converted (<span id="dispTargetCurrName">KRW</span>):</span>
+            <span><span id="dispTargetCurrSymbol"></span><span id="dispConvertedGrandTotal">0.00</span></span>
           </div>
         </div>
       </div>
@@ -812,8 +839,8 @@ Best regards,
 <div class="wizard-overlay no-print" id="wizardModal" style="display:none;">
   <div class="wizard-card">
     <div class="wizard-header">
-      <h2>Invoice Creation Wizard</h2>
-      <p>Follow the steps to configure your invoice</p>
+      <h2 id="wizTitle">Creation Wizard</h2>
+      <p>Follow the steps to configure your document</p>
     </div>
 
     <div class="wizard-progress">
@@ -829,32 +856,32 @@ Best regards,
       <h3>How would you like to start?</h3>
       <div class="wizard-choice-grid">
         <div class="wizard-choice-card" onclick="wizSelectStart('new', this)">
-          <h4>New Invoice</h4>
-          <p>Create a new invoice from scratch</p>
+          <h4>New Document</h4>
+          <p>Create a new document from scratch</p>
         </div>
         <div class="wizard-choice-card" onclick="wizSelectStart('saved', this)">
-          <h4>Old Invoice</h4>
-          <p>Re-open or modify a past invoice</p>
+          <h4>Saved Document</h4>
+          <p>Re-open or modify a past entry</p>
         </div>
       </div>
       <div id="wizSavedSection" style="display:none; margin-top:15px;">
         <div class="form-group">
-          <label>Select Saved Invoice</label>
-          <select id="wizHistorySelect" style="width:100%;" onchange="openSelectedOldInvoice()"><option value="">-- Choose Invoice --</option></select>
+          <label>Select Saved Item</label>
+          <select id="wizHistorySelect" style="width:100%;" onchange="openSelectedOldInvoice()"><option value="">-- Choose Item --</option></select>
         </div>
       </div>
     </div>
 
     <div class="wizard-step-content" id="wizStep2">
       <h3>Your Business Info</h3>
-      <p style="font-size:0.8rem; color:#64748b; margin-bottom:15px;">Saved automatically for future invoices.</p>
+      <p style="font-size:0.8rem; color:#64748b; margin-bottom:15px;">Saved automatically for future documents.</p>
       <div class="form-group"><label>Business / Provider Name</label><input type="text" id="wizBizName" placeholder="e.g. Studio Audio Services"></div>
       <div class="form-group"><label>Return Address / Contact</label><textarea id="wizBizAddr" rows="2" placeholder="123 Main St&#10;City, Region"></textarea></div>
       <div class="form-group"><label>Payment Instructions</label><textarea id="wizPayTerms" rows="2" placeholder="E-transfer to info@example.com"></textarea></div>
     </div>
 
     <div class="wizard-step-content" id="wizStep3">
-      <h3>Who is this invoice for?</h3>
+      <h3>Who is this document for?</h3>
       <div class="form-group">
         <label>Load Saved Client</label>
         <select id="wizClientSelect" onchange="wizLoadClient()"><option value="">-- Saved Clients --</option></select>
@@ -879,8 +906,8 @@ Best regards,
       <div id="wizLaborFields" style="display:none; margin-top:15px;">
         <div class="form-group"><label>Service Description</label><input type="text" id="wizLaborDesc" placeholder="e.g. Audio Engineering / Consulting"></div>
         <div class="row-3">
-          <div class="form-group"><label>Total Hours (default per selected day)</label><input type="number" step="0.25" id="wizLaborQty" placeholder="5.0" max="9999" maxlength="6" oninput="renderWizardCalendar();"></div>
-          <div class="form-group"><label>Hourly Rate</label><input type="number" step="0.01" id="wizLaborRate" placeholder="60" max="99999" maxlength="7"></div>
+          <div class="form-group"><label>Total Hours (default per selected day)</label><input type="number" step="0.25" id="wizLaborQty" placeholder="5.0" max="9999" maxlength="6" oninput="renderWizardCalendar(); validateWizStep(4, false);"></div>
+          <div class="form-group"><label>Hourly Rate</label><input type="number" step="0.01" id="wizLaborRate" placeholder="60" max="99999" maxlength="7" oninput="validateWizStep(4, false);"></div>
           <div class="form-group"><label>Disc %</label><input type="number" step="1" id="wizLaborDisc" placeholder="0" min="-100" max="100" maxlength="5"></div>
         </div>
         <label style="display:flex; align-items:center; font-size:0.85rem; margin-bottom:10px;"><input type="checkbox" id="wizLaborTaxable" checked style="width:auto; margin-right:6px;"> Charge tax on labor</label>
@@ -917,7 +944,7 @@ Best regards,
 
     <div class="wizard-step-content" id="wizStep6">
       <h3>Ready to Generate!</h3>
-      <p style="font-size:0.9rem; color:#475569; margin-bottom:15px;">Your invoice details have been collected! Click <strong>Finish & View Invoice</strong> to preview your invoice.</p>
+      <p style="font-size:0.9rem; color:#475569; margin-bottom:15px;">Your details have been collected! Click <strong>Finish & View Document</strong> to preview.</p>
     </div>
 
     <div class="wizard-actions">
@@ -949,7 +976,7 @@ Best regards,
       </div>
       <div style="display:flex; gap:6px;">
         <button class="btn btn-secondary" style="padding:6px 10px; font-size:0.8rem;" onclick="clearTimelineSlots()">Clear All</button>
-        <button class="btn btn-primary" style="padding:6px 12px; font-size:0.8rem;" onclick="saveTimelineSlots()">Apply to Invoice</button>
+        <button class="btn btn-primary" style="padding:6px 12px; font-size:0.8rem;" onclick="saveTimelineSlots()">Apply to Document</button>
       </div>
     </div>
   </div>
@@ -959,13 +986,13 @@ Best regards,
   <div class="modal-card">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <h3 style="margin:0; font-size:1.1rem; color:#dc2626; display:flex; align-items:center; gap:6px;">
-        Overdue Unpaid Invoices
+        Overdue Unpaid Documents
       </h3>
       <button class="btn btn-danger" style="padding:4px 8px; font-size:0.8rem;" onclick="closeReminderModal()">&times;</button>
     </div>
     
     <p style="font-size:0.8rem; color:#64748b; margin-top:0; margin-bottom:12px;">
-      The following invoices are still unpaid and have exceeded your threshold of <strong id="reminderDaysSpan">7</strong> days:
+      The following items are still unpaid and have exceeded your threshold of <strong id="reminderDaysSpan">7</strong> days:
     </p>
 
     <div id="reminderListContainer" style="max-height:300px; overflow-y:auto; margin-bottom:12px;"></div>
@@ -986,15 +1013,15 @@ Best regards,
     </div>
     
     <p style="font-size:0.82rem; color:#64748b; margin-top:0; margin-bottom:14px;">
-      Export system invoices into a single compiled CSV file for accounting and tax reporting.
+      Export system records into a single compiled CSV file for accounting and tax reporting.
     </p>
 
     <div class="form-group">
-      <label>Invoice Status Filter</label>
+      <label>Status Filter</label>
       <select id="exportStatusSelect">
-        <option value="all">All Invoices (Paid & Unpaid)</option>
-        <option value="paid">All Paid Invoices Only</option>
-        <option value="unpaid">All Unpaid Invoices Only</option>
+        <option value="all">All Documents (Paid & Unpaid)</option>
+        <option value="paid">All Paid Items Only</option>
+        <option value="unpaid">All Unpaid Items Only</option>
       </select>
     </div>
 
@@ -1037,8 +1064,6 @@ Best regards,
   let hasLabor = true;
   let hasSales = true;
   let userHasInteractedWithItems = false;
-  // Snapshot of the main invoice form before the wizard opens. This prevents
-  // Skip / Close from ever mixing wizard fields into unrelated invoice fields.
   let wizardInitialData = null;
 
   function markItemsInteracted() {
@@ -1056,6 +1081,13 @@ Best regards,
       .replace(/'/g, '&#39;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
+  }
+
+  // Symbols ($, £, €, ¥...) sit flush against the amount; multi-character
+  // codes (CAD, USD, KRW...) get a trailing space so they stay readable.
+  function currencyPrefix(curr) {
+    const c = (curr || "$").trim() || "$";
+    return c.length > 1 ? c + " " : c;
   }
 
   window.onload = function() {
@@ -1119,6 +1151,11 @@ Best regards,
     document.getElementById("dispLogoContainer").style.display = (mode === "logo" && logoBase64) ? "block" : "none";
     document.getElementById("dispSenderName").style.display = (mode === "text" || !logoBase64) ? "block" : "none";
     updateInvoice();
+  }
+
+  function toggleConversionUI() {
+    const enabled = document.getElementById("inputEnableConversion").checked;
+    document.getElementById("conversionFieldsUI").style.display = enabled ? "flex" : "none";
   }
 
   function handleLogoUpload(event) {
@@ -1229,7 +1266,7 @@ Best regards,
               client: inv.clientName || 'Unknown Client',
               date: inv.invDate,
               daysOverdue: diffDays,
-              amount: (inv.currency || '$') + totals.grandTotal.toFixed(2)
+              amount: currencyPrefix(inv.currency) + totals.grandTotal.toFixed(2)
             });
           }
         }
@@ -1239,7 +1276,7 @@ Best regards,
     if (overdueList.length > 0) {
       renderOverdueModal(overdueList);
     } else if (manualTrigger) {
-      alert("No overdue unpaid invoices found!");
+      alert("No overdue unpaid documents found!");
     }
   }
 
@@ -1334,7 +1371,7 @@ Best regards,
       }
 
       populateHistorySelects();
-      alert(`Invoice #${num} marked as PAID!`);
+      alert(`Document #${num} marked as PAID!`);
       checkOverdueInvoices(false);
       if (document.getElementById("reminderListContainer").children.length === 0) {
         closeReminderModal();
@@ -1348,20 +1385,21 @@ Best regards,
 
     const clientEmail = inv.clientEmail;
     if (!clientEmail) {
-      alert(`Invoice #${num} has no client email address saved!`);
+      alert(`Document #${num} has no client email address saved!`);
       return;
     }
 
-    const subject = `Overdue Payment Reminder: Invoice #${inv.invNum}`;
-    const body = `Hi ${inv.clientName || 'Client'},\n\nThis is a friendly reminder that Invoice #${inv.invNum} issued on ${inv.invDate} is currently overdue.\n\nPlease let us know when we can expect payment.\n\nThank you,\n${inv.senderName || ''}`;
+    const docType = inv.docType || "Invoice";
+    const subject = `Overdue Payment Reminder: ${docType} #${inv.invNum}`;
+    const body = `Hi ${inv.clientName || 'Client'},\n\nThis is a friendly reminder that ${docType} #${inv.invNum} issued on ${inv.invDate} is currently overdue.\n\nPlease let us know when we can expect payment.\n\nThank you,\n${inv.senderName || ''}`;
 
     const mailtoUrl = `mailto:${clientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.location.href = mailtoUrl;
   }
 
   function openWizard(step = 1) {
-    // Capture the current main form before any wizard interaction.
     wizardInitialData = {
+      docType: document.getElementById("inputDocType").value,
       senderName: document.getElementById("inputSenderName").value,
       yourAddress: document.getElementById("inputYourAddress").value,
       paymentInfo: document.getElementById("inputPaymentInfo").value,
@@ -1397,9 +1435,8 @@ Best regards,
   function closeWizard() {
     document.getElementById("wizardModal").style.display = "none";
 
-    // Always restore the business name from the state that existed before the
-    // wizard opened. This is especially important for Skip / Close.
     const initial = wizardInitialData || {
+      docType: document.getElementById("inputDocType").value,
       senderName: document.getElementById("inputSenderName").value,
       yourAddress: document.getElementById("inputYourAddress").value,
       paymentInfo: document.getElementById("inputPaymentInfo").value,
@@ -1411,6 +1448,7 @@ Best regards,
       customHtmlLink: document.getElementById("inputCustomHtmlLink").value
     };
 
+    document.getElementById("inputDocType").value = initial.docType;
     document.getElementById("inputSenderName").value = initial.senderName;
     saveBizName(initial.senderName);
     document.getElementById("inputYourAddress").value = initial.yourAddress;
@@ -1424,8 +1462,6 @@ Best regards,
     document.getElementById("inputClientEmail").value = initial.clientEmail;
     document.getElementById("inputClientAddr").value = initial.clientAddr;
 
-    // These fields are NOT wizard fields. Restore their original values so a
-    // skipped wizard can never put the business name or another value into them.
     document.getElementById("inputPaypalUrl").value = initial.paypalUrl;
     document.getElementById("inputInteracUrl").value = initial.interacUrl;
     document.getElementById("inputCustomHtmlLink").value = initial.customHtmlLink;
@@ -1464,7 +1500,8 @@ Best regards,
     document.getElementById(`wizStep${step}`).classList.add("active");
 
     document.getElementById("wizPrevBtn").style.visibility = (step === 1) ? "hidden" : "visible";
-    document.getElementById("wizNextBtn").innerText = (step === 6) ? "Finish & View Invoice" : "Next Step";
+    const docType = document.getElementById("inputDocType") ? document.getElementById("inputDocType").value : "Invoice";
+    document.getElementById("wizNextBtn").innerText = (step === 6) ? `Finish & View ${docType}` : "Next Step";
   }
 
   function openSelectedOldInvoice() {
@@ -1474,10 +1511,52 @@ Best regards,
     document.getElementById("historySelect").value = val;
     loadInvoiceFromHistory();
 
-    // Opening an old invoice is an edit action, not a wizard action.
-    // Do not call closeWizard() here because it restores the pre-wizard snapshot.
     document.getElementById("wizardModal").style.display = "none";
     wizardInitialData = null;
+  }
+
+  // Mirrors validatePriceFields()'s logic, scoped to whichever wizard step is
+  // currently showing. focusOnInvalid defaults to true (used when the user
+  // tries to advance); pass false for live-as-you-type checks so typing in
+  // one item's price field doesn't yank focus away because another is empty.
+  function validateWizStep(step, focusOnInvalid) {
+    if (focusOnInvalid === undefined) focusOnInvalid = true;
+    let valid = true;
+
+    if (step === 4 && hasLabor) {
+      const rateInput = document.getElementById("wizLaborRate");
+      const qtyInput = document.getElementById("wizLaborQty");
+      const hasSelectedDates = selectedDates.length > 0;
+      const qtyValue = parseFloat(qtyInput.value);
+      const rateValue = parseFloat(rateInput.value);
+      const laborNeedsRate = hasSelectedDates || (!isNaN(qtyValue) && qtyValue > 0);
+      const invalid = laborNeedsRate && (isNaN(rateValue) || rateValue <= 0);
+      rateInput.classList.toggle("input-error", invalid);
+      if (invalid) {
+        valid = false;
+        if (focusOnInvalid) rateInput.focus();
+      }
+    }
+
+    if (step === 5 && hasSales) {
+      let firstInvalidEl = null;
+      document.querySelectorAll("#wizItemsContainer .wiz-item-price-input").forEach((priceInput, index) => {
+        const item = additionalItems[index];
+        if (!item) return;
+        const itemQty = parseFloat(item.qty);
+        const itemPrice = parseFloat(item.price);
+        const itemNeedsPrice = !isNaN(itemQty) && itemQty > 0;
+        const itemInvalid = itemNeedsPrice && (isNaN(itemPrice) || itemPrice <= 0);
+        priceInput.classList.toggle("input-error", itemInvalid);
+        if (itemInvalid) {
+          valid = false;
+          if (!firstInvalidEl) firstInvalidEl = priceInput;
+        }
+      });
+      if (firstInvalidEl && focusOnInvalid) firstInvalidEl.focus();
+    }
+
+    return valid;
   }
 
   function wizNav(dir) {
@@ -1485,7 +1564,7 @@ Best regards,
       const mode = document.querySelector("#wizStep1 .wizard-choice-card.selected");
       if (mode && mode.innerText.includes("Saved")) {
         const val = document.getElementById("wizHistorySelect").value;
-        if (!val) return alert("Select a saved invoice.");
+        if (!val) return alert("Select a saved item.");
         openSelectedOldInvoice();
         return;
       }
@@ -1493,6 +1572,10 @@ Best regards,
 
     if (dir === 1 && currentWizStep === 6) {
       closeWizard();
+      return;
+    }
+
+    if (dir === 1 && !validateWizStep(currentWizStep)) {
       return;
     }
 
@@ -1519,6 +1602,7 @@ Best regards,
     document.getElementById("cardLaborNo").classList.toggle("selected", !enable);
     document.getElementById("wizLaborFields").style.display = enable ? "block" : "none";
     if (enable) renderWizardCalendar();
+    validateWizStep(4, false);
   }
 
   function wizToggleSales(enable) {
@@ -1526,12 +1610,17 @@ Best regards,
     document.getElementById("cardSalesYes").classList.toggle("selected", enable);
     document.getElementById("cardSalesNo").classList.toggle("selected", !enable);
     document.getElementById("wizSalesFields").style.display = enable ? "block" : "none";
-    if (enable && additionalItems.length === 0) addWizardItem();
+    if (enable) {
+      if (additionalItems.length === 0) addWizardItem();
+      else renderWizardItems();
+    }
+    validateWizStep(5, false);
   }
 
   function addWizardItem() {
     additionalItems.push({ desc: "", qty: "1", price: "0", disc: "", taxable: true });
     renderWizardItems();
+    validateWizStep(5, false);
   }
 
   function renderWizardItems() {
@@ -1543,8 +1632,8 @@ Best regards,
           <button class="remove-btn" onclick="removeWizardItem(${idx})">&times;</button>
           <div class="form-group"><input type="text" placeholder="Part Name / Item" value="${escapeAttr(item.desc)}" oninput="additionalItems[${idx}].desc=this.value"></div>
           <div class="row-3">
-            <input type="number" placeholder="Qty" value="${escapeAttr(item.qty)}" max="9999" maxlength="6" oninput="additionalItems[${idx}].qty=this.value">
-            <input type="number" placeholder="Price" value="${escapeAttr(item.price)}" max="99999" maxlength="7" oninput="additionalItems[${idx}].price=this.value">
+            <input type="number" placeholder="Qty" value="${escapeAttr(item.qty)}" max="9999" maxlength="6" oninput="additionalItems[${idx}].qty=this.value; validateWizStep(5, false);">
+            <input type="number" placeholder="Price" class="wiz-item-price-input" value="${escapeAttr(item.price)}" max="99999" maxlength="7" oninput="additionalItems[${idx}].price=this.value; validateWizStep(5, false);">
             <input type="number" placeholder="Disc%" value="${escapeAttr(item.disc)}" max="100" maxlength="5" oninput="additionalItems[${idx}].disc=this.value">
           </div>
         </div>
@@ -1555,6 +1644,7 @@ Best regards,
   function removeWizardItem(idx) {
     additionalItems.splice(idx, 1);
     renderWizardItems();
+    validateWizStep(5, false);
   }
 
   function wizLoadClient() {
@@ -1574,7 +1664,35 @@ Best regards,
     const today = new Date();
     currentYear = today.getFullYear();
     currentMonth = today.getMonth();
-    document.getElementById("inputInvDate").value = today.toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' });
+    document.getElementById("inputInvDate").value = formatDateObj(today, document.getElementById("inputDateFormat") ? document.getElementById("inputDateFormat").value : "MMM D, YYYY");
+  }
+
+  function formatDateStr(dateStr, formatStyle) {
+    if (!dateStr) return '';
+    const parts = dateStr.split("-");
+    if (parts.length !== 3) return dateStr;
+    const dateObj = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    return formatDateObj(dateObj, formatStyle);
+  }
+
+  function formatDateObj(dateObj, formatStyle) {
+    if (isNaN(dateObj.getTime())) return "";
+    const yyyy = dateObj.getFullYear();
+    const yy = String(yyyy).slice(-2);
+    const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const dd = String(dateObj.getDate()).padStart(2, '0');
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    switch (formatStyle) {
+      case "MM-DD-YY": return `${mm}-${dd}-${yy}`;
+      case "DD-MM-YY": return `${dd}-${mm}-${yy}`;
+      case "DD-MM-YYYY": return `${dd}-${mm}-${yyyy}`;
+      case "MM/DD/YYYY": return `${mm}/${dd}/${yyyy}`;
+      case "YYYY-MM-DD": return `${yyyy}-${mm}-${dd}`;
+      case "MMM D, YYYY":
+      default:
+        return `${monthNames[dateObj.getMonth()]} ${dateObj.getDate()}, ${yyyy}`;
+    }
   }
 
   function getHighestInvoiceNum() {
@@ -1610,6 +1728,8 @@ Best regards,
     document.getElementById("inputInteracUrl").value = "";
     document.getElementById("inputCustomHtmlLink").value = "";
     document.getElementById("inputEInvoiceMode").checked = false;
+    document.getElementById("inputEnableConversion").checked = false;
+    toggleConversionUI();
 
     initDate();
     renderCalendar();
@@ -1622,12 +1742,17 @@ Best regards,
     if (!invNum) return;
 
     const data = {
+      docType: document.getElementById("inputDocType").value,
+      dateFormat: document.getElementById("inputDateFormat").value,
       invNum: invNum,
       invDate: document.getElementById("inputInvDate").value,
       clientName: document.getElementById("inputClientName").value,
       clientEmail: document.getElementById("inputClientEmail").value,
       clientAddr: document.getElementById("inputClientAddr").value,
       currency: document.getElementById("inputCurrency").value,
+      enableConversion: document.getElementById("inputEnableConversion").checked,
+      targetCurrency: document.getElementById("inputTargetCurrency").value,
+      exchangeRate: document.getElementById("inputExchangeRate").value,
       taxName: document.getElementById("inputTaxName").value,
       taxRate: document.getElementById("inputTaxRate").value,
       desc: document.getElementById("inputDefaultDesc").value,
@@ -1659,18 +1784,19 @@ Best regards,
     localStorage.setItem("invoice_history", JSON.stringify(invoiceHistory));
     populateHistorySelects();
 
-    if (showAlert) alert(`Invoice #${invNum} saved successfully!`);
+    if (showAlert) alert(`${data.docType || 'Document'} #${invNum} saved successfully!`);
   }
 
   function populateHistorySelects() {
     const selects = [document.getElementById("historySelect"), document.getElementById("wizHistorySelect")];
     selects.forEach(select => {
       if (!select) return;
-      select.innerHTML = '<option value="">-- Select Saved Invoice --</option>';
+      select.innerHTML = '<option value="">-- Select Saved Item --</option>';
       Object.keys(invoiceHistory).forEach(num => {
         const item = invoiceHistory[num];
         const statusStr = item.isPaid ? ' [PAID]' : '';
-        select.innerHTML += `<option value="${escapeAttr(num)}">#${num} - ${escapeAttr(item.clientName || 'Draft')}${statusStr}</option>`;
+        const dt = item.docType || 'Invoice';
+        select.innerHTML += `<option value="${escapeAttr(num)}">[${dt}] #${num} - ${escapeAttr(item.clientName || 'Draft')}${statusStr}</option>`;
       });
     });
   }
@@ -1680,12 +1806,17 @@ Best regards,
     if (!num || !invoiceHistory[num]) return;
 
     const item = invoiceHistory[num];
+    if (item.docType) document.getElementById("inputDocType").value = item.docType;
+    if (item.dateFormat) document.getElementById("inputDateFormat").value = item.dateFormat;
     document.getElementById("inputInvNum").value = item.invNum;
     document.getElementById("inputInvDate").value = item.invDate || "";
     document.getElementById("inputClientName").value = item.clientName || "";
     document.getElementById("inputClientEmail").value = item.clientEmail || "";
     document.getElementById("inputClientAddr").value = item.clientAddr || "";
     document.getElementById("inputCurrency").value = item.currency || "$";
+    document.getElementById("inputEnableConversion").checked = !!item.enableConversion;
+    document.getElementById("inputTargetCurrency").value = item.targetCurrency || "";
+    document.getElementById("inputExchangeRate").value = item.exchangeRate || "";
     document.getElementById("inputTaxName").value = item.taxName || "";
     document.getElementById("inputTaxRate").value = item.taxRate || "";
     document.getElementById("inputDefaultDesc").value = item.desc || "";
@@ -1719,6 +1850,7 @@ Best regards,
 
     userHasInteractedWithItems = (selectedDates.length > 0 || parseFloat(item.qty) > 0 || parseFloat(item.rate) > 0 || additionalItems.length > 0);
 
+    toggleConversionUI();
     toggleHeaderMode();
     renderCalendar();
     renderAdditionalItemsUI();
@@ -1727,7 +1859,7 @@ Best regards,
 
   function deleteInvoiceFromHistory() {
     const num = document.getElementById("historySelect").value;
-    if (num && confirm(`Delete Invoice #${num}?`)) {
+    if (num && confirm(`Delete Document #${num}?`)) {
       delete invoiceHistory[num];
       localStorage.setItem("invoice_history", JSON.stringify(invoiceHistory));
       populateHistorySelects();
@@ -1829,11 +1961,11 @@ Best regards,
     persistentChips.forEach((chip, index) => {
       const chipEl = document.createElement("div");
       chipEl.className = "item-chip";
-      chipEl.title = "Click to add to active invoice";
+      chipEl.title = "Click to add to active document";
       chipEl.onclick = () => useChipOnInvoice(index);
       chipEl.innerHTML = `
         <span>+ ${escapeAttr(chip.desc)}</span>
-        <span class="chip-price">${currency}${parseFloat(chip.price || 0).toFixed(2)}</span>
+        <span class="chip-price">${escapeAttr(currencyPrefix(currency))}${parseFloat(chip.price || 0).toFixed(2)}</span>
         <span class="chip-delete" onclick="deleteGlobalChip(event, ${index})" title="Delete chip permanently">&times;</span>
       `;
       container.appendChild(chipEl);
@@ -2012,16 +2144,10 @@ Best regards,
     updateInvoice();
   }
 
-  function formatDisplayDate(dateStr) {
-    const parts = dateStr.split("-");
-    if (parts.length !== 3) return dateStr;
-    const date = new Date(parts[0], parts[1] - 1, parts[2]);
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  }
-
   function openTimeModal(dateKey) {
     activeEditingDate = dateKey;
-    document.getElementById("modalDateTitle").innerText = `Select Working Hours for ${formatDisplayDate(dateKey)}`;
+    const dateFormat = document.getElementById("inputDateFormat") ? document.getElementById("inputDateFormat").value : "MMM D, YYYY";
+    document.getElementById("modalDateTitle").innerText = `Select Working Hours for ${formatDateStr(dateKey, dateFormat)}`;
     document.getElementById("timeModal").style.display = "flex";
     modalActiveSlots = new Set(dateCustomData[dateKey]?.slots || []);
     renderTimelineSlots();
@@ -2161,312 +2287,6 @@ Best regards,
     updateInvoice();
   }
 
-
-  function showAppToast(message, duration = 5000) {
-    const toast = document.getElementById("appToast");
-    if (!toast) return;
-    toast.textContent = message;
-    toast.classList.add("show");
-    clearTimeout(toast._hideTimer);
-    toast._hideTimer = setTimeout(() => toast.classList.remove("show"), duration);
-  }
-
-  function generatePDFAndEmail() {
-    saveCurrentInvoice();
-
-    const clientEmail = document.getElementById("inputClientEmail").value.trim();
-    if (!clientEmail) {
-      alert("Please enter a Client Email Address first.");
-      return;
-    }
-
-    // Validate the address without URI-encoding the @ delimiter.
-    const emailMatch = clientEmail.match(/^[^\s@]+@[^\s@]+$/);
-    if (!emailMatch) {
-      alert("Please enter a valid Client Email Address.");
-      return;
-    }
-
-    const invNum = document.getElementById("inputInvNum").value.trim() || "Draft";
-    const senderName = document.getElementById("inputSenderName").value.trim() || "Sender";
-    const clientName = document.getElementById("inputClientName").value.trim() || "Client";
-    const invDate = document.getElementById("inputInvDate").value.trim().replace(/[/\\?%*:|"<>]/g, '-');
-    const grandTotalVal = document.getElementById("dispGrandTotal").innerText;
-
-    const cleanSender = senderName.replace(/[/\\?%*:|"<>]/g, '');
-    const cleanClient = clientName.replace(/[/\\?%*:|"<>]/g, '');
-    document.title = `Invoice_${invNum}_${cleanSender}_${cleanClient}_${invDate}`;
-
-    let subject = document.getElementById("inputEmailSubject")
-      ? document.getElementById("inputEmailSubject").value
-      : "Invoice #{invNum}";
-
-    let body = document.getElementById("inputEmailBody")
-      ? document.getElementById("inputEmailBody").value
-      : "Please find your invoice #{invNum}.\n\nThank you,\n{senderName}";
-
-    let payLinksText = "";
-    const paypalUrl = document.getElementById("inputPaypalUrl").value.trim().replace(/{amount}/g, grandTotalVal);
-    const interacUrl = document.getElementById("inputInteracUrl").value.trim().replace(/{amount}/g, grandTotalVal);
-
-    if (paypalUrl) payLinksText += `Pay with PayPal: ${paypalUrl}\n`;
-    if (interacUrl) payLinksText += `Pay via Interac/Direct: ${interacUrl}\n`;
-
-    subject = subject.replace(/{invNum}/g, invNum)
-      .replace(/{invDate}/g, invDate)
-      .replace(/{senderName}/g, senderName)
-      .replace(/{clientName}/g, clientName);
-
-    body = body.replace(/{invNum}/g, invNum)
-      .replace(/{invDate}/g, invDate)
-      .replace(/{senderName}/g, senderName)
-      .replace(/{clientName}/g, clientName)
-      .replace(/{paymentLinks}/g, payLinksText);
-
-    // RFC 6068: keep the @ in the addr-spec and encode the message fields.
-    const mailtoUrl = `mailto:${clientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-
-    // Use a genuine mailto anchor instead of assigning window.location after a timeout.
-    // This is considerably more interoperable with browser mail handlers.
-    const mailLink = document.createElement("a");
-    mailLink.href = mailtoUrl;
-    mailLink.style.display = "none";
-    mailLink.setAttribute("aria-hidden", "true");
-    document.body.appendChild(mailLink);
-
-    const isEInvoice = document.getElementById("inputEInvoiceMode").checked;
-
-    if (isEInvoice) {
-      // E-invoice mode intentionally only opens the mail client.
-      mailLink.click();
-      mailLink.remove();
-      setTimeout(() => {
-        showAppToast("Loading default mail client...");
-      }, 100);
-      return;
-    }
-
-    // IMPORTANT: invoke native printing BEFORE opening mailto. Safari/iOS/macOS
-    // and some Android browsers treat the mailto hand-off as navigation and
-    // consume the click's user-activation token. A later window.print() is then
-    // silently ignored. Printing first keeps it inside the original tap/click.
-    // Mobile Safari/Chrome do not consistently fire `afterprint`. Use the first
-    // reliable signal that printing has returned control to the page: afterprint,
-    // visibility restoration, or focus restoration after the print UI closes.
-    let printUiWasExited = false;
-    let mailLaunched = false;
-    let fallbackTimer = null;
-
-    const cleanupPrintListeners = () => {
-      window.removeEventListener("afterprint", launchMailAfterPrint);
-      document.removeEventListener("visibilitychange", handlePrintVisibility);
-      window.removeEventListener("focus", handlePrintFocus);
-      if (fallbackTimer) {
-        clearTimeout(fallbackTimer);
-        fallbackTimer = null;
-      }
-    };
-
-    const launchMailAfterPrint = () => {
-      if (mailLaunched) return;
-      mailLaunched = true;
-      cleanupPrintListeners();
-      // Use a real mailto navigation after printing. Safari can reject a
-      // synthetic anchor click once the print UI has taken over.
-      mailLink.remove();
-      window.location.href = mailtoUrl;
-    };
-
-    const handlePrintVisibility = () => {
-      // Printing commonly hides the document; launch the mail client when the
-      // page becomes visible again after that hidden state.
-      if (document.visibilityState === "hidden") {
-        printUiWasExited = true;
-      } else if (printUiWasExited) {
-        setTimeout(launchMailAfterPrint, 250);
-      }
-    };
-
-    const handlePrintFocus = () => {
-      if (printUiWasExited) {
-        setTimeout(launchMailAfterPrint, 250);
-      }
-    };
-
-    window.addEventListener("afterprint", launchMailAfterPrint);
-    document.addEventListener("visibilitychange", handlePrintVisibility);
-    window.addEventListener("focus", handlePrintFocus);
-
-    // On Android, the native Print / Save as PDF sheet may not fire
-    // afterprint, visibilitychange, or focus. In those browsers the most
-    // useful signal is that window.print() has returned to JavaScript.
-    // Give the native PDF handoff a brief moment to settle, then launch the
-    // mail client immediately. The guard prevents duplicate launches on
-    // browsers that also fire afterprint/focus.
-    window.print();
-    setTimeout(() => {
-      if (!mailLaunched) launchMailAfterPrint();
-    }, 750);
-
-    // Final safety net for unusual browsers where window.print() returns but
-    // the mail handoff is temporarily blocked.
-    fallbackTimer = setTimeout(() => {
-      if (!mailLaunched) launchMailAfterPrint();
-    }, 5000);
-  }
-
-  function openSystemPrinterPDF() {
-    saveCurrentInvoice();
-
-    const invNum = document.getElementById("inputInvNum").value.trim() || "Draft";
-    const senderName = document.getElementById("inputSenderName").value.trim() || "Sender";
-    const clientName = document.getElementById("inputClientName").value.trim() || "Client";
-    const invDate = document.getElementById("inputInvDate").value.trim().replace(/[/\\?%*:|"<>]/g, '-');
-
-    const cleanSender = senderName.replace(/[/\\?%*:|"<>]/g, '');
-    const cleanClient = clientName.replace(/[/\\?%*:|"<>]/g, '');
-
-    document.title = `Invoice_${invNum}_${cleanSender}_${cleanClient}_${invDate}`;
-
-    // Use the browser's native print pipeline. This is supported by desktop
-    // browsers and by Android/iOS browser print sheets without creating a
-    // popup, iframe, Blob or downloadable PDF that mobile browsers may block.
-    window.print();
-  }
-
-
-  function openExportCsvModal() {
-    saveCurrentInvoice();
-    document.getElementById("exportCsvModal").style.display = "flex";
-  }
-
-  function closeExportCsvModal() {
-    document.getElementById("exportCsvModal").style.display = "none";
-  }
-
-  function generateAndDownloadCsv() {
-    const startDateInput = document.getElementById("exportStartDate").value;
-    const endDateInput = document.getElementById("exportEndDate").value;
-    const statusFilter = document.getElementById("exportStatusSelect").value;
-
-    const startDate = startDateInput ? new Date(startDateInput + "T00:00:00") : null;
-    const endDate = endDateInput ? new Date(endDateInput + "T23:59:59") : null;
-
-    let csvRows = [];
-    csvRows.push([
-      "Invoice Number", "Invoice Date", "Client Name", "Client Email", "Payment Status",
-      "Item Type", "Description", "Qty / Hours", "Rate / Price", "Discount %",
-      "Taxable", "Line Total", "Invoice Subtotal", "Invoice Tax", "Invoice Grand Total", "Currency"
-    ]);
-
-    const cleanField = (str) => `"${String(str || '').replace(/"/g, '""')}"`;
-    let totalExportedInvoices = 0;
-
-    Object.keys(invoiceHistory).forEach(num => {
-      const inv = invoiceHistory[num];
-      const isPaid = !!inv.isPaid;
-
-      if (statusFilter === "paid" && !isPaid) return;
-      if (statusFilter === "unpaid" && isPaid) return;
-
-      if (inv.invDate) {
-        const invDateObj = new Date(inv.invDate);
-        if (!isNaN(invDateObj.getTime())) {
-          if (startDate && invDateObj < startDate) return;
-          if (endDate && invDateObj > endDate) return;
-        }
-      }
-
-      totalExportedInvoices++;
-
-      const invTotals = calculateDetailedInvoiceTotal(inv);
-      const statusText = isPaid ? "PAID" : "UNPAID";
-      const currency = inv.currency || "$";
-
-      const defaultQty = parseFloat(inv.qty) || 0;
-      const defaultRate = parseFloat(inv.rate) || 0;
-      const laborDisc = parseFloat(inv.laborDisc) || 0;
-      const defaultDesc = inv.desc || "Labor Services";
-
-      let lineItemExported = false;
-
-      if (inv.selectedDates && inv.selectedDates.length > 0) {
-        inv.selectedDates.forEach(d => {
-          lineItemExported = true;
-          const custom = inv.dateCustomData ? inv.dateCustomData[d] : null;
-          const q = custom ? custom.qty : (defaultQty > 0 ? defaultQty : 1);
-          const gross = q * defaultRate;
-          const lineTotal = gross - (gross * (laborDisc / 100));
-          csvRows.push([
-            cleanField(inv.invNum), cleanField(d || inv.invDate), cleanField(inv.clientName),
-            cleanField(inv.clientEmail), cleanField(statusText), cleanField("Labor"),
-            cleanField(defaultDesc), q, defaultRate, laborDisc,
-            inv.laborTaxable !== false ? "Yes" : "No", lineTotal.toFixed(2),
-            invTotals.subtotal.toFixed(2), invTotals.taxAmt.toFixed(2),
-            invTotals.grandTotal.toFixed(2), cleanField(currency)
-          ]);
-        });
-      } else if (defaultQty > 0) {
-        lineItemExported = true;
-        const gross = defaultQty * defaultRate;
-        const lineTotal = gross - (gross * (laborDisc / 100));
-        csvRows.push([
-          cleanField(inv.invNum), cleanField(inv.invDate), cleanField(inv.clientName),
-          cleanField(inv.clientEmail), cleanField(statusText), cleanField("Labor"),
-          cleanField(defaultDesc), defaultQty, defaultRate, laborDisc,
-          inv.laborTaxable !== false ? "Yes" : "No", lineTotal.toFixed(2),
-          invTotals.subtotal.toFixed(2), invTotals.taxAmt.toFixed(2),
-          invTotals.grandTotal.toFixed(2), cleanField(currency)
-        ]);
-      }
-
-      if (inv.additionalItems && inv.additionalItems.length > 0) {
-        inv.additionalItems.forEach(item => {
-          lineItemExported = true;
-          const q = parseFloat(item.qty) || 0;
-          const p = parseFloat(item.price) || 0;
-          const d = parseFloat(item.disc) || 0;
-          const gross = q * p;
-          const lineTotal = gross - (gross * (d / 100));
-          csvRows.push([
-            cleanField(inv.invNum), cleanField(inv.invDate), cleanField(inv.clientName),
-            cleanField(inv.clientEmail), cleanField(statusText), cleanField("Part / Item"),
-            cleanField(item.desc || "Line Item"), q, p, d,
-            item.taxable ? "Yes" : "No", lineTotal.toFixed(2),
-            invTotals.subtotal.toFixed(2), invTotals.taxAmt.toFixed(2),
-            invTotals.grandTotal.toFixed(2), cleanField(currency)
-          ]);
-        });
-      }
-
-      if (!lineItemExported) {
-        csvRows.push([
-          cleanField(inv.invNum), cleanField(inv.invDate), cleanField(inv.clientName),
-          cleanField(inv.clientEmail), cleanField(statusText), cleanField("N/A"),
-          cleanField("No Items"), 0, 0, 0, "No", "0.00",
-          invTotals.subtotal.toFixed(2), invTotals.taxAmt.toFixed(2),
-          invTotals.grandTotal.toFixed(2), cleanField(currency)
-        ]);
-      }
-    });
-
-    if (totalExportedInvoices === 0) {
-      alert("No invoices matched your export filter.");
-      return;
-    }
-
-    const csvString = csvRows.map(e => e.join(",")).join("\n");
-    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Invoices_Export_${new Date().toISOString().slice(0,10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    closeExportCsvModal();
-  }
-
   function validatePriceFields() {
     const rateInput = document.getElementById("inputDefaultRate");
     const defaultQtyInput = document.getElementById("inputDefaultQty");
@@ -2488,102 +2308,127 @@ Best regards,
   }
 
   function updateInvoice() {
-    const currency = document.getElementById("inputCurrency").value;
-    document.querySelectorAll(".curr").forEach(el => el.innerText = currency);
+    const docType = document.getElementById("inputDocType").value || "Invoice";
+    document.getElementById("dispDocTypeHeader").innerText = docType;
+    document.getElementById("labelInvNum").innerText = `${docType} #`;
+    document.getElementById("labelInvDate").innerText = `${docType} Date`;
+    document.getElementById("btnEmailClient").innerText = `Print PDF & Email ${docType}`;
+    if (document.getElementById("wizTitle")) document.getElementById("wizTitle").innerText = `${docType} Creation Wizard`;
 
-    const senderName = document.getElementById("inputSenderName").value || "Your Business Name";
     const font = document.getElementById("headerFont").value;
-    const fontSize = document.getElementById("headerFontSize").value;
-    const fontColor = document.getElementById("headerColor").value;
-
+    const size = document.getElementById("headerFontSize").value + "px";
+    const color = document.getElementById("headerColor").value;
+    const senderName = document.getElementById("inputSenderName").value || "Your Business Name";
     const dispSender = document.getElementById("dispSenderName");
-    dispSender.innerText = senderName;
+
     dispSender.style.fontFamily = font;
-    dispSender.style.fontSize = fontSize + "px";
-    dispSender.style.color = fontColor;
+    dispSender.style.fontSize = size;
+    dispSender.style.color = color;
+    dispSender.innerText = senderName;
 
     document.getElementById("dispInvNum").innerText = document.getElementById("inputInvNum").value || "1001";
     document.getElementById("dispInvDate").innerText = document.getElementById("inputInvDate").value || "";
     document.getElementById("dispClientName").innerText = document.getElementById("inputClientName").value || "CLIENT NAME";
     document.getElementById("dispClientAddr").innerText = document.getElementById("inputClientAddr").value || "";
 
-    const tbody = document.getElementById("dispTableBody");
-    tbody.innerHTML = "";
+    const currency = document.getElementById("inputCurrency").value || "$";
+    document.querySelectorAll(".curr").forEach(el => el.innerText = currencyPrefix(currency));
 
-    let subtotal = 0;
-    let totalTaxableSub = 0;
+    const dateFormat = document.getElementById("inputDateFormat").value;
+    const taxName = document.getElementById("inputTaxName").value || "Tax";
+    const taxRate = parseFloat(document.getElementById("inputTaxRate").value) || 0;
 
-    const defaultDesc = document.getElementById("inputDefaultDesc").value || "Consulting / Labor";
+    const defaultDesc = document.getElementById("inputDefaultDesc").value || "Labor / Services";
     const defaultQty = parseFloat(document.getElementById("inputDefaultQty").value) || 0;
     const defaultRate = parseFloat(document.getElementById("inputDefaultRate").value) || 0;
     const laborDisc = parseFloat(document.getElementById("inputLaborDisc").value) || 0;
     const laborTaxable = document.getElementById("inputLaborTaxable").checked;
 
+    let itemsList = [];
+
     if (selectedDates.length > 0) {
       selectedDates.forEach(d => {
         const custom = dateCustomData[d];
         const q = custom ? custom.qty : (defaultQty > 0 ? defaultQty : 1);
-        const gross = q * defaultRate;
-        const lineTotal = gross - (gross * (laborDisc / 100));
-        subtotal += lineTotal;
-        if (laborTaxable) totalTaxableSub += lineTotal;
-
-        tbody.innerHTML += `
-          <tr>
-            <td class="col-date">${formatDisplayDate(d)}</td>
-            <td class="col-desc">${escapeAttr(defaultDesc)}</td>
-            <td class="col-qty">${q}</td>
-            <td class="col-price">${currency}${defaultRate.toFixed(2)}</td>
-            <td class="col-disc">${laborDisc ? laborDisc + '%' : '-'}</td>
-            <td class="col-tax">${laborTaxable ? 'Yes' : 'No'}</td>
-            <td class="col-total">${currency}${lineTotal.toFixed(2)}</td>
-          </tr>
-        `;
+        const formattedD = formatDateStr(d, dateFormat);
+        itemsList.push({
+          date: formattedD,
+          desc: defaultDesc,
+          qty: q,
+          price: defaultRate,
+          disc: laborDisc,
+          taxable: laborTaxable
+        });
       });
-    } else if (defaultQty > 0 || userHasInteractedWithItems) {
-      if (defaultQty > 0) {
-        const gross = defaultQty * defaultRate;
-        const lineTotal = gross - (gross * (laborDisc / 100));
-        subtotal += lineTotal;
-        if (laborTaxable) totalTaxableSub += lineTotal;
-
-        tbody.innerHTML += `
-          <tr>
-            <td class="col-date">-</td>
-            <td class="col-desc">${escapeAttr(defaultDesc)}</td>
-            <td class="col-qty">${defaultQty}</td>
-            <td class="col-price">${currency}${defaultRate.toFixed(2)}</td>
-            <td class="col-disc">${laborDisc ? laborDisc + '%' : '-'}</td>
-            <td class="col-tax">${laborTaxable ? 'Yes' : 'No'}</td>
-            <td class="col-total">${currency}${lineTotal.toFixed(2)}</td>
-          </tr>
-        `;
-      }
+    } else if (defaultQty > 0 || defaultRate > 0 || defaultDesc !== "Labor / Services") {
+      itemsList.push({
+        date: document.getElementById("inputInvDate").value || "",
+        desc: defaultDesc,
+        qty: defaultQty,
+        price: defaultRate,
+        disc: laborDisc,
+        taxable: laborTaxable
+      });
     }
 
     additionalItems.forEach(item => {
-      const q = parseFloat(item.qty) || 0;
-      const p = parseFloat(item.price) || 0;
-      const d = parseFloat(item.disc) || 0;
-      const gross = q * p;
-      const lineTotal = gross - (gross * (d / 100));
+      itemsList.push({
+        date: document.getElementById("inputInvDate").value || "",
+        desc: item.desc || "Item",
+        qty: parseFloat(item.qty) || 0,
+        price: parseFloat(item.price) || 0,
+        disc: parseFloat(item.disc) || 0,
+        taxable: item.taxable !== false
+      });
+    });
+
+    const hasAnyDiscount = itemsList.some(i => i.disc > 0) || (parseFloat(document.getElementById("inputGlobalDisc").value) > 0);
+    const hasAnyTax = taxRate > 0 && itemsList.some(i => i.taxable);
+
+    const tableHead = document.getElementById("dispTableHead");
+    let headHtml = `<tr>
+      <th class="col-date">Date</th>
+      <th class="col-desc">Description</th>
+      <th class="col-qty">Hrs / Qty</th>
+      <th class="col-price">Rate</th>`;
+    if (hasAnyDiscount) headHtml += `<th class="col-disc">Disc %</th>`;
+    if (hasAnyTax) headHtml += `<th class="col-tax">Tax Amount</th>`;
+    headHtml += `<th class="col-total">Total</th></tr>`;
+    tableHead.innerHTML = headHtml;
+
+    const tableBody = document.getElementById("dispTableBody");
+    tableBody.innerHTML = "";
+
+    let subtotal = 0;
+    let totalTaxableSub = 0;
+
+    itemsList.forEach(item => {
+      const gross = item.qty * item.price;
+      const lineDiscAmt = gross * (item.disc / 100);
+      const lineTotal = gross - lineDiscAmt;
+
       subtotal += lineTotal;
       if (item.taxable) totalTaxableSub += lineTotal;
 
-      tbody.innerHTML += `
-        <tr>
-          <td class="col-date">-</td>
-          <td class="col-desc">${escapeAttr(item.desc || 'Line Item')}</td>
-          <td class="col-qty">${q}</td>
-          <td class="col-price">${currency}${p.toFixed(2)}</td>
-          <td class="col-disc">${d ? d + '%' : '-'}</td>
-          <td class="col-tax">${item.taxable ? 'Yes' : 'No'}</td>
-          <td class="col-total">${currency}${lineTotal.toFixed(2)}</td>
-        </tr>
-      `;
-    });
+      const lineTaxAmt = item.taxable ? (lineTotal * (taxRate / 100)) : 0;
 
-    document.getElementById("dispSubtotal").innerText = subtotal.toFixed(2);
+      let rowHtml = `<tr>
+        <td class="col-date">${escapeAttr(item.date)}</td>
+        <td class="col-desc">${escapeAttr(item.desc)}</td>
+        <td class="col-qty">${item.qty}</td>
+        <td class="col-price">${currencyPrefix(currency)}${item.price.toFixed(2)}</td>`;
+
+      if (hasAnyDiscount) {
+        rowHtml += `<td class="col-disc">${item.disc > 0 ? (item.disc + '%') : ''}</td>`;
+      }
+
+      if (hasAnyTax) {
+        rowHtml += `<td class="col-tax">${item.taxable && taxRate > 0 ? (currencyPrefix(currency) + lineTaxAmt.toFixed(2)) : ''}</td>`;
+      }
+
+      rowHtml += `<td class="col-total">${currencyPrefix(currency)}${lineTotal.toFixed(2)}</td></tr>`;
+      tableBody.innerHTML += rowHtml;
+    });
 
     const globalDiscRate = parseFloat(document.getElementById("inputGlobalDisc").value) || 0;
     const globalDiscAmt = subtotal * (globalDiscRate / 100);
@@ -2598,13 +2443,12 @@ Best regards,
       globalDiscRow.style.display = "none";
     }
 
-    const taxName = document.getElementById("inputTaxName").value || "Tax";
-    const taxRate = parseFloat(document.getElementById("inputTaxRate").value) || 0;
     const taxableRatio = subtotal > 0 ? (totalTaxableSub / subtotal) : 0;
     const taxAmt = (subAfterGlobalDisc * taxableRatio) * (taxRate / 100);
+    const grandTotal = subAfterGlobalDisc + taxAmt;
 
     const taxRow = document.getElementById("taxRow");
-    if (taxRate > 0) {
+    if (hasAnyTax) {
       taxRow.style.display = "flex";
       document.getElementById("dispTaxNameLabel").innerText = taxName;
       document.getElementById("dispTaxRateLabel").innerText = taxRate;
@@ -2613,60 +2457,220 @@ Best regards,
       taxRow.style.display = "none";
     }
 
-    const grandTotal = subAfterGlobalDisc + taxAmt;
+    document.getElementById("dispSubtotal").innerText = subtotal.toFixed(2);
     document.getElementById("dispGrandTotal").innerText = grandTotal.toFixed(2);
 
     validatePriceFields();
 
-    const paymentInfo = document.getElementById("inputPaymentInfo").value;
-    const blockPaymentInfo = document.getElementById("blockPaymentInfo");
-    if (paymentInfo.trim()) {
-      blockPaymentInfo.style.display = "block";
-      document.getElementById("dispPaymentInfo").innerText = paymentInfo;
+    const enableConversion = document.getElementById("inputEnableConversion").checked;
+    const targetCurr = document.getElementById("inputTargetCurrency").value.trim();
+    const rateVal = parseFloat(document.getElementById("inputExchangeRate").value) || 0;
+    const convRow = document.getElementById("dispConvertedTotalRow");
+
+    if (enableConversion && targetCurr && rateVal > 0) {
+      convRow.style.display = "flex";
+      document.getElementById("dispTargetCurrName").innerText = targetCurr;
+      document.getElementById("dispTargetCurrSymbol").innerText = currencyPrefix(targetCurr);
+      document.getElementById("dispConvertedGrandTotal").innerText = (grandTotal * rateVal).toFixed(2);
     } else {
-      blockPaymentInfo.style.display = "none";
+      convRow.style.display = "none";
     }
 
-    const yourAddress = document.getElementById("inputYourAddress").value;
-    const blockYourAddress = document.getElementById("blockYourAddress");
-    if (yourAddress.trim()) {
-      blockYourAddress.style.display = "block";
-      document.getElementById("dispYourAddress").innerText = yourAddress;
+    const payInfo = document.getElementById("inputPaymentInfo").value;
+    const blockPayInfo = document.getElementById("blockPaymentInfo");
+    if (payInfo.trim()) {
+      blockPayInfo.style.display = "block";
+      document.getElementById("dispPaymentInfo").innerText = payInfo;
     } else {
-      blockYourAddress.style.display = "none";
+      blockPayInfo.style.display = "none";
     }
 
-    const blockPaymentIcons = document.getElementById("blockPaymentIcons");
-    const dispQrContainer = document.getElementById("dispQrContainer");
-    if (qrBase64) {
-      dispQrContainer.style.display = "block";
-      document.getElementById("dispQrImg").src = qrBase64;
+    const yourAddr = document.getElementById("inputYourAddress").value;
+    const blockYourAddr = document.getElementById("blockYourAddress");
+    if (yourAddr.trim()) {
+      blockYourAddr.style.display = "block";
+      document.getElementById("dispYourAddress").innerText = yourAddr;
     } else {
-      dispQrContainer.style.display = "none";
+      blockYourAddr.style.display = "none";
     }
 
-    const buttonsContainer = document.getElementById("dispPaymentButtonsContainer");
-    buttonsContainer.innerHTML = "";
-
-    const paypalUrl = document.getElementById("inputPaypalUrl").value.trim().replace(/{amount}/g, grandTotal.toFixed(2));
-    const interacUrl = document.getElementById("inputInteracUrl").value.trim().replace(/{amount}/g, grandTotal.toFixed(2));
+    const paypalUrl = document.getElementById("inputPaypalUrl").value.trim();
+    const interacUrl = document.getElementById("inputInteracUrl").value.trim();
     const customHtml = document.getElementById("inputCustomHtmlLink").value.trim();
+    const blockPayIcons = document.getElementById("blockPaymentIcons");
+    const buttonsContainer = document.getElementById("dispPaymentButtonsContainer");
+
+    buttonsContainer.innerHTML = "";
+    let hasButtons = false;
+
+    if (qrBase64) {
+      document.getElementById("dispQrContainer").style.display = "block";
+      document.getElementById("dispQrImg").src = qrBase64;
+      hasButtons = true;
+    } else {
+      document.getElementById("dispQrContainer").style.display = "none";
+    }
 
     if (paypalUrl) {
-      buttonsContainer.innerHTML += `<a href="${escapeAttr(paypalUrl)}" target="_blank" class="payment-btn payment-btn-paypal">Pay via PayPal</a>`;
-    }
-    if (interacUrl) {
-      buttonsContainer.innerHTML += `<a href="${escapeAttr(interacUrl)}" target="_blank" class="payment-btn payment-btn-interac">Pay via Interac / Direct</a>`;
-    }
-    if (customHtml) {
-      buttonsContainer.innerHTML += customHtml;
+      const formattedPaypal = paypalUrl.replace(/{amount}/g, grandTotal.toFixed(2));
+      buttonsContainer.innerHTML += `<a href="${escapeAttr(formattedPaypal)}" target="_blank" class="payment-btn payment-btn-paypal">Pay with PayPal</a>`;
+      hasButtons = true;
     }
 
-    if (qrBase64 || paypalUrl || interacUrl || customHtml) {
-      blockPaymentIcons.style.display = "block";
-    } else {
-      blockPaymentIcons.style.display = "none";
+    if (interacUrl) {
+      const formattedInterac = interacUrl.replace(/{amount}/g, grandTotal.toFixed(2));
+      buttonsContainer.innerHTML += `<a href="${escapeAttr(formattedInterac)}" target="_blank" class="payment-btn payment-btn-interac">Pay via Interac / Direct</a>`;
+      hasButtons = true;
     }
+
+    if (customHtml) {
+      buttonsContainer.innerHTML += customHtml;
+      hasButtons = true;
+    }
+
+    blockPayIcons.style.display = hasButtons ? "block" : "none";
+  }
+
+  function showAppToast(message, duration = 5000) {
+    const toast = document.getElementById("appToast");
+    if (!toast) return;
+    toast.textContent = message;
+    toast.classList.add("show");
+    clearTimeout(toast._hideTimer);
+    toast._hideTimer = setTimeout(() => toast.classList.remove("show"), duration);
+  }
+
+  function generatePDFAndEmail() {
+    saveCurrentInvoice();
+
+    const clientEmail = document.getElementById("inputClientEmail").value.trim();
+    if (!clientEmail) {
+      alert("Please enter a Client Email Address first.");
+      return;
+    }
+
+    const emailMatch = clientEmail.match(/^[^\s@]+@[^\s@]+$/);
+    if (!emailMatch) {
+      alert("Please enter a valid Client Email Address.");
+      return;
+    }
+
+    const docType = document.getElementById("inputDocType").value || "Invoice";
+    const invNum = document.getElementById("inputInvNum").value.trim() || "Draft";
+    const senderName = document.getElementById("inputSenderName").value.trim() || "Sender";
+    const clientName = document.getElementById("inputClientName").value.trim() || "Client";
+    const invDate = document.getElementById("inputInvDate").value.trim().replace(/[/\\?%*:|"<>]/g, '-');
+    const grandTotalVal = document.getElementById("dispGrandTotal").innerText;
+
+    const cleanSender = senderName.replace(/[/\\?%*:|"<>]/g, '');
+    const cleanClient = clientName.replace(/[/\\?%*:|"<>]/g, '');
+    document.title = `${docType}_${invNum}_${cleanSender}_${cleanClient}_${invDate}`;
+
+    let subject = document.getElementById("inputEmailSubject")
+      ? document.getElementById("inputEmailSubject").value
+      : "{docType} #{invNum}";
+
+    let body = document.getElementById("inputEmailBody")
+      ? document.getElementById("inputEmailBody").value
+      : "Please find your {docType} #{invNum}.\n\nThank you,\n{senderName}";
+
+    let payLinksText = "";
+    const paypalUrl = document.getElementById("inputPaypalUrl").value.trim().replace(/{amount}/g, grandTotalVal);
+    const interacUrl = document.getElementById("inputInteracUrl").value.trim().replace(/{amount}/g, grandTotalVal);
+
+    if (paypalUrl) payLinksText += `Pay with PayPal: ${paypalUrl}\n`;
+    if (interacUrl) payLinksText += `Pay via Interac/Direct: ${interacUrl}\n`;
+
+    subject = subject.replace(/{docType}/g, docType)
+      .replace(/{invNum}/g, invNum)
+      .replace(/{invDate}/g, invDate)
+      .replace(/{senderName}/g, senderName)
+      .replace(/{clientName}/g, clientName);
+
+    body = body.replace(/{docType}/g, docType)
+      .replace(/{invNum}/g, invNum)
+      .replace(/{invDate}/g, invDate)
+      .replace(/{senderName}/g, senderName)
+      .replace(/{clientName}/g, clientName)
+      .replace(/{paymentLinks}/g, payLinksText);
+
+    const mailtoUrl = `mailto:${clientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailtoUrl;
+
+    setTimeout(() => {
+      window.print();
+    }, 400);
+  }
+
+  function openSystemPrinterPDF() {
+    saveCurrentInvoice();
+    const docType = document.getElementById("inputDocType").value || "Invoice";
+    const invNum = document.getElementById("inputInvNum").value.trim() || "Draft";
+    const senderName = (document.getElementById("inputSenderName").value.trim() || "Sender").replace(/[/\\?%*:|"<>]/g, '');
+    const clientName = (document.getElementById("inputClientName").value.trim() || "Client").replace(/[/\\?%*:|"<>]/g, '');
+    const invDate = document.getElementById("inputInvDate").value.trim().replace(/[/\\?%*:|"<>]/g, '-');
+    
+    document.title = `${docType}_${invNum}_${senderName}_${clientName}_${invDate}`;
+    window.print();
+  }
+
+  function openExportCsvModal() {
+    document.getElementById("exportCsvModal").style.display = "flex";
+  }
+
+  function closeExportCsvModal() {
+    document.getElementById("exportCsvModal").style.display = "none";
+  }
+
+  function generateAndDownloadCsv() {
+    const filterStatus = document.getElementById("exportStatusSelect").value;
+    const startDateVal = document.getElementById("exportStartDate").value;
+    const endDateVal = document.getElementById("exportEndDate").value;
+
+    const startDate = startDateVal ? new Date(startDateVal) : null;
+    const endDate = endDateVal ? new Date(endDateVal) : null;
+
+    let csvRows = [];
+    csvRows.push(["Document Type", "Number", "Date", "Client Name", "Client Email", "Status", "Subtotal", "Tax Amount", "Grand Total", "Currency"].join(","));
+
+    Object.keys(invoiceHistory).forEach(num => {
+      const inv = invoiceHistory[num];
+      if (filterStatus === "paid" && !inv.isPaid) return;
+      if (filterStatus === "unpaid" && inv.isPaid) return;
+
+      if (inv.invDate) {
+        const invDateObj = new Date(inv.invDate);
+        if (!isNaN(invDateObj.getTime())) {
+          if (startDate && invDateObj < startDate) return;
+          if (endDate && invDateObj > endDate) return;
+        }
+      }
+
+      const totals = calculateDetailedInvoiceTotal(inv);
+      const row = [
+        `"${(inv.docType || 'Invoice').replace(/"/g, '""')}"`,
+        `"${(inv.invNum || '').replace(/"/g, '""')}"`,
+        `"${(inv.invDate || '').replace(/"/g, '""')}"`,
+        `"${(inv.clientName || '').replace(/"/g, '""')}"`,
+        `"${(inv.clientEmail || '').replace(/"/g, '""')}"`,
+        inv.isPaid ? '"PAID"' : '"UNPAID"',
+        totals.subtotal.toFixed(2),
+        totals.taxAmt.toFixed(2),
+        totals.grandTotal.toFixed(2),
+        `"${(inv.currency || '$').replace(/"/g, '""')}"`
+      ];
+      csvRows.push(row.join(","));
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," + csvRows.join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Invoices_Export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    closeExportCsvModal();
   }
 </script>
 </body>
