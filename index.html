@@ -1449,18 +1449,31 @@ Best regards,
     };
 
     document.getElementById("inputDocType").value = initial.docType;
-    document.getElementById("inputSenderName").value = initial.senderName;
-    saveBizName(initial.senderName);
-    document.getElementById("inputYourAddress").value = initial.yourAddress;
-    document.getElementById("inputPaymentInfo").value = initial.paymentInfo;
 
-    localStorage.setItem("profile_biz_name", initial.senderName);
-    localStorage.setItem("profile_your_addr", initial.yourAddress);
-    localStorage.setItem("profile_payment_info", initial.paymentInfo);
+    // FIX: commit the wizard's OWN fields (whatever the user typed, or pulled
+    // in via "Load Saved Client" in Step 3) instead of "initial", which is
+    // just a snapshot of the sidebar from the moment the wizard was opened.
+    // Re-applying that stale snapshot here was why wizard selections never
+    // reached the sidebar / invoice.
+    const finalSenderName = document.getElementById("wizBizName").value;
+    const finalYourAddress = document.getElementById("wizBizAddr").value;
+    const finalPaymentInfo = document.getElementById("wizPayTerms").value;
+    const finalClientName = document.getElementById("wizClientName").value;
+    const finalClientEmail = document.getElementById("wizClientEmail").value;
+    const finalClientAddr = document.getElementById("wizClientAddr").value;
 
-    document.getElementById("inputClientName").value = initial.clientName;
-    document.getElementById("inputClientEmail").value = initial.clientEmail;
-    document.getElementById("inputClientAddr").value = initial.clientAddr;
+    document.getElementById("inputSenderName").value = finalSenderName;
+    saveBizName(finalSenderName);
+    document.getElementById("inputYourAddress").value = finalYourAddress;
+    document.getElementById("inputPaymentInfo").value = finalPaymentInfo;
+
+    localStorage.setItem("profile_biz_name", finalSenderName);
+    localStorage.setItem("profile_your_addr", finalYourAddress);
+    localStorage.setItem("profile_payment_info", finalPaymentInfo);
+
+    document.getElementById("inputClientName").value = finalClientName;
+    document.getElementById("inputClientEmail").value = finalClientEmail;
+    document.getElementById("inputClientAddr").value = finalClientAddr;
 
     document.getElementById("inputPaypalUrl").value = initial.paypalUrl;
     document.getElementById("inputInteracUrl").value = initial.interacUrl;
@@ -2595,11 +2608,25 @@ Best regards,
       .replace(/{paymentLinks}/g, payLinksText);
 
     const mailtoUrl = `mailto:${clientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.location.href = mailtoUrl;
 
-    setTimeout(() => {
-      window.print();
-    }, 400);
+    // FIX: print first, email second. window.print() hands off to the
+    // OS/browser print manager; 'afterprint' fires once that dialog is
+    // dismissed (printed, saved as PDF, or cancelled) -- only THEN do we
+    // open the mailto: link. The fallback timer is just a safety net for
+    // the rare browser that never fires 'afterprint', so the email still
+    // goes out eventually instead of silently never happening.
+    let mailtoFired = false;
+    const fireMailto = () => {
+      if (mailtoFired) return;
+      mailtoFired = true;
+      clearTimeout(fallbackTimer);
+      window.location.href = mailtoUrl;
+    };
+
+    window.addEventListener('afterprint', fireMailto, { once: true });
+    const fallbackTimer = setTimeout(fireMailto, 10000);
+
+    window.print();
   }
 
   function openSystemPrinterPDF() {
