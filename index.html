@@ -196,8 +196,6 @@
 
     .payment-btn-paypal { background-color: #0070ba !important; color: #ffffff !important; }
     .payment-btn-paypal:hover { background-color: #005ea6 !important; }
-    .payment-btn-interac { background-color: #00838f !important; color: #ffffff !important; }
-    .payment-btn-interac:hover { background-color: #006064 !important; }
     .payment-btn-custom { background-color: #2563eb !important; color: #ffffff !important; }
 
     .wizard-overlay {
@@ -247,6 +245,31 @@
     .wizard-actions {
       display: flex; justify-content: space-between; margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--border); gap: 8px;
     }
+
+    .security-screen {
+      position: fixed; inset: 0; z-index: 6000;
+      background: #f8fafc; display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .security-card {
+      width: 420px; max-width: 100%; background: #ffffff; border: 1px solid var(--border);
+      border-radius: 12px; padding: 28px; box-shadow: 0 20px 45px rgba(15,23,42,0.18); text-align: center;
+    }
+    .security-card h1 { margin: 0 0 8px 0; font-size: 1.45rem; color: #1e293b; }
+    .security-card p { margin: 0 0 18px 0; color: #64748b; font-size: 0.88rem; line-height: 1.45; }
+    .security-pin-input {
+      width: 100%; padding: 13px 12px; border: 1px solid var(--border); border-radius: 8px;
+      font-size: 1.35rem; letter-spacing: 0.35em; text-align: center;
+    }
+    .security-pin-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
+    .security-error { min-height: 20px; margin-top: 8px; color: #dc2626; font-size: 0.8rem; font-weight: 600; }
+
+    .payment-button-image-preview {
+      display: block; max-width: 260px; max-height: 90px; object-fit: contain;
+      margin-top: 8px; border: 1px solid var(--border); border-radius: 6px;
+    }
+    .payment-btn-image { padding: 4px !important; border-radius: 8px !important; background: transparent !important; box-shadow: none !important; }
+    .payment-btn-image img { display: block; max-width: 260px; max-height: 90px; object-fit: contain; border-radius: 6px; }
 
     .item-block {
       border: 1px solid var(--border); background: #f8fafc; padding: 10px; border-radius: 6px; margin-bottom: 10px; position: relative;
@@ -421,7 +444,7 @@
       .inv-number-title { text-align: right !important; }
       .totals-box { width: 320px !important; margin-left: auto !important; }
       table.inv-table { min-width: 0 !important; width: 100% !important; }
-      .payment-btn, .payment-btn-paypal, .payment-btn-interac, .payment-btn-custom {
+      .payment-btn, .payment-btn-paypal, .payment-btn-custom {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
         color: #ffffff !important;
@@ -461,7 +484,20 @@
 
 <div id="appToast" class="app-toast" role="status" aria-live="polite"></div>
 
-<div class="app-container">
+<div class="security-screen no-print" id="securityScreen">
+  <div class="security-card">
+    <h1 id="securityTitle">Guided Invoice Generator</h1>
+    <p id="securityMessage">Create a 7-digit PIN to protect access to the app.</p>
+    <form id="securityForm" onsubmit="submitSecurityPin(event)">
+      <input class="security-pin-input" id="securityPin" type="password" inputmode="numeric" autocomplete="off" maxlength="7" pattern="[0-9]{7}" placeholder="7-digit PIN" aria-label="7-digit PIN">
+      <input class="security-pin-input" id="securityPinConfirm" type="password" inputmode="numeric" autocomplete="off" maxlength="7" pattern="[0-9]{7}" placeholder="Confirm 7-digit PIN" aria-label="Confirm 7-digit PIN" style="display:none; margin-top:10px;">
+      <div class="security-error" id="securityError" aria-live="polite"></div>
+      <button class="btn btn-primary" id="securitySubmit" type="submit" style="width:100%; margin-top:4px;">Set PIN</button>
+    </form>
+  </div>
+</div>
+
+<div class="app-container" inert>
   
   <div class="sidebar no-print" id="sidebarPanel">
     <button class="btn btn-wizard-launch" onclick="openWizard(1)">Run Setup Wizard</button>
@@ -717,9 +753,16 @@ Best regards,
         </div>
 
         <div class="form-group">
-          <label>Interac / Custom Payment Link / Button URL</label>
-          <input type="text" id="inputInteracUrl" placeholder="https://yourbank.com/pay or e-transfer@example.com" oninput="updateInvoice()">
+          <label>Payment Link Button Image</label>
+          <input type="file" id="paymentButtonImageUpload" accept="image/*" onchange="handlePaymentButtonImageUpload(event)">
+          <img id="paymentButtonImagePreview" class="payment-button-image-preview" src="" alt="Payment Link Button Preview" style="display:none;">
         </div>
+
+        <div class="form-group">
+          <label>Payment Link Button Address / Email</label>
+          <input type="text" id="inputPaymentButtonAddress" placeholder="https://example.com/pay or e-transfer@example.com" oninput="updateInvoice()">
+        </div>
+        <button class="btn btn-danger" style="width:100%; margin-bottom:12px;" onclick="removePaymentButtonImage()">Remove Payment Link Button Image</button>
 
         <div class="form-group">
           <label>Custom HTML Link / Button Code (For E-Invoices)</label>
@@ -742,6 +785,15 @@ Best regards,
           <button class="btn btn-email" id="btnEmailClient" onclick="generatePDFAndEmail()">Print PDF & Email Client</button>
           <button class="btn btn-warning" onclick="checkOverdueInvoices(true)">Check Overdue Unpaid Alarm</button>
           <button class="btn btn-primary" onclick="openSystemPrinterPDF()">Print / Save as PDF Only</button>
+          <div class="form-group" style="margin:2px 0 0 0;">
+            <label>Ledger address</label>
+            <input type="text" id="inputLedgerAddress" placeholder="My_Invoices.ledger" oninput="saveLedgerAddressSetting(this.value)">
+            <div style="font-size:0.72rem; color:#64748b; margin-top:4px;">The browser chooses the cloud/local folder when you save the .ledger file.</div>
+          </div>
+          <div class="row-2" style="margin-bottom:0;">
+            <button class="btn btn-secondary" onclick="saveLedgerFile()">Save Ledger</button>
+            <button class="btn btn-success" onclick="loadLedgerFile()">Sync / Load Ledger</button>
+          </div>
           <button class="btn btn-success" onclick="openExportCsvModal()">Export CSV (All Saved Items)</button>
         </div>
       </div>
@@ -1056,7 +1108,13 @@ Best regards,
   let additionalItems = [];
   let logoBase64 = localStorage.getItem("invoice_logo_b64") || "";
   let qrBase64 = localStorage.getItem("invoice_qr_b64") || "";
+  let paymentButtonImageBase64 = localStorage.getItem("invoice_payment_button_b64") || "";
   let activeEditingDate = null;
+  let appUnlocked = false;
+  let ledgerDirty = false;
+  let ledgerReminderTimer = null;
+  let ledgerFileHandle = null;
+  let restoringLedger = false;
   let isDraggingSlots = false;
   let dragSetState = true;
   let modalActiveSlots = new Set();
@@ -1085,6 +1143,350 @@ Best regards,
 
   // Symbols ($, £, €, ¥...) sit flush against the amount; multi-character
   // codes (CAD, USD, KRW...) get a trailing space so they stay readable.
+  function normalizePaymentLink(address) {
+    const value = String(address || '').trim();
+    if (!value) return '';
+    if (/^[a-z][a-z0-9+.-]*:/i.test(value)) return value;
+    if (/^\/\//.test(value)) return `https:${value}`;
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return `mailto:${value}`;
+    return `https://${value}`;
+  }
+
+  function normalizeLedgerFileName(name) {
+    let value = String(name || '').trim() || 'GuidedInvoiceLedger.ledger';
+    value = value.split(/[\\/]/).pop().trim() || 'GuidedInvoiceLedger.ledger';
+    if (!/\.ledger$/i.test(value)) value += '.ledger';
+    return value;
+  }
+
+  function saveLedgerAddressSetting(value) {
+    const clean = String(value || '').trim();
+    localStorage.setItem('invoice_ledger_address', clean);
+    if (appUnlocked && !restoringLedger) ledgerDirty = true;
+  }
+
+  function handlePaymentButtonImageUpload(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      paymentButtonImageBase64 = e.target.result || '';
+      localStorage.setItem('invoice_payment_button_b64', paymentButtonImageBase64);
+      renderPaymentButtonImagePreview();
+      updateInvoice();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function renderPaymentButtonImagePreview() {
+    const preview = document.getElementById('paymentButtonImagePreview');
+    if (!preview) return;
+    preview.src = paymentButtonImageBase64 || '';
+    preview.style.display = paymentButtonImageBase64 ? 'block' : 'none';
+  }
+
+  function removePaymentButtonImage() {
+    paymentButtonImageBase64 = '';
+    localStorage.removeItem('invoice_payment_button_b64');
+    const input = document.getElementById('paymentButtonImageUpload');
+    if (input) input.value = '';
+    renderPaymentButtonImagePreview();
+    updateInvoice();
+  }
+
+  async function hashSecurityPin(pin) {
+    const bytes = new TextEncoder().encode(String(pin));
+    if (window.crypto && crypto.subtle) {
+      const digest = await crypto.subtle.digest('SHA-256', bytes);
+      return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    let hash = 2166136261;
+    for (const byte of bytes) {
+      hash ^= byte;
+      hash = Math.imul(hash, 16777619);
+    }
+    return `fallback-${hash >>> 0}`;
+  }
+
+  function initSecurityGate() {
+    const hasPin = !!localStorage.getItem('guided_invoice_pin_hash');
+    const confirm = document.getElementById('securityPinConfirm');
+    const submit = document.getElementById('securitySubmit');
+    if (hasPin) {
+      document.getElementById('securityMessage').textContent = 'Enter your 7-digit PIN to open the app.';
+      confirm.style.display = 'none';
+      submit.textContent = 'Unlock';
+    } else {
+      document.getElementById('securityMessage').textContent = 'Create a 7-digit PIN to protect access to the app.';
+      confirm.style.display = 'block';
+      submit.textContent = 'Set PIN';
+    }
+    document.getElementById('securityPin').focus();
+  }
+
+  async function submitSecurityPin(event) {
+    event.preventDefault();
+    const pin = document.getElementById('securityPin').value.trim();
+    const confirm = document.getElementById('securityPinConfirm').value.trim();
+    const error = document.getElementById('securityError');
+    error.textContent = '';
+
+    if (!/^\d{7}$/.test(pin)) {
+      error.textContent = 'PIN must contain exactly 7 digits.';
+      return false;
+    }
+
+    const existingHash = localStorage.getItem('guided_invoice_pin_hash');
+    if (!existingHash) {
+      if (pin !== confirm) {
+        error.textContent = 'The PIN entries do not match.';
+        return false;
+      }
+      localStorage.setItem('guided_invoice_pin_hash', await hashSecurityPin(pin));
+    } else if (await hashSecurityPin(pin) !== existingHash) {
+      error.textContent = 'Incorrect PIN.';
+      document.getElementById('securityPin').select();
+      return false;
+    }
+
+    appUnlocked = true;
+    document.querySelector('.app-container').removeAttribute('inert');
+    ledgerDirty = true;
+    document.getElementById('securityScreen').style.display = 'none';
+    document.getElementById('securityPin').value = '';
+    confirm.value = '';
+    startLedgerReminderTimer();
+    openWizard(1);
+    setTimeout(() => {
+      checkOverdueInvoices(false);
+    }, 600);
+    return false;
+  }
+
+  function startLedgerReminderTimer() {
+    clearInterval(ledgerReminderTimer);
+    ledgerReminderTimer = setInterval(() => {
+      if (!appUnlocked) return;
+      const address = document.getElementById('inputLedgerAddress')?.value.trim() || '';
+      showAppToast(address ? '10 minutes: remember to Save Ledger.' : '10 minutes: remember to save a Ledger file so your work can be continued on another device.');
+    }, 10 * 60 * 1000);
+  }
+
+  function buildLedgerPackage() {
+    const localStorageState = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      localStorageState[key] = localStorage.getItem(key);
+    }
+
+    const sidebarState = {};
+    document.querySelectorAll('#sidebarPanel input[id], #sidebarPanel textarea[id], #sidebarPanel select[id]').forEach(el => {
+      if (el.type === 'file') return;
+      sidebarState[el.id] = (el.type === 'checkbox' || el.type === 'radio') ? el.checked : el.value;
+    });
+
+    // Keep the ledger authoritative even when an in-memory collection has
+    // changed since its last localStorage write.
+    localStorageState.invoice_history = JSON.stringify(invoiceHistory);
+    localStorageState.invoice_clients = JSON.stringify(clients);
+    localStorageState.global_chip_palette = JSON.stringify(persistentChips);
+    localStorageState.reminder_threshold_days = String(reminderThresholdDays);
+    localStorageState.invoice_logo_b64 = logoBase64;
+    localStorageState.invoice_qr_b64 = qrBase64;
+    if (paymentButtonImageBase64) localStorageState.invoice_payment_button_b64 = paymentButtonImageBase64;
+    else delete localStorageState.invoice_payment_button_b64;
+
+    let ledgerLastNum = parseInt(localStorageState.invoice_last_num || '1000', 10);
+    Object.keys(invoiceHistory).forEach(num => {
+      const parsed = parseInt(num, 10);
+      if (!isNaN(parsed) && parsed > ledgerLastNum) ledgerLastNum = parsed;
+    });
+    const currentInvoiceNum = parseInt(document.getElementById('inputInvNum').value, 10);
+    if (!isNaN(currentInvoiceNum) && currentInvoiceNum > ledgerLastNum) ledgerLastNum = currentInvoiceNum;
+    localStorageState.invoice_last_num = String(ledgerLastNum);
+
+    return {
+      format: 'Guided Invoice Generator Ledger',
+      version: 1,
+      savedAt: new Date().toISOString(),
+      localStorage: localStorageState,
+      sidebarState,
+      runtimeState: {
+        selectedDates: [...selectedDates],
+        dateCustomData: dateCustomData,
+        additionalItems: [...additionalItems],
+        currentYear,
+        currentMonth,
+        currentWizStep,
+        hasLabor,
+        hasSales,
+        userHasInteractedWithItems,
+        logoBase64,
+        qrBase64,
+        paymentButtonImageBase64
+      }
+    };
+  }
+
+  function parseLedgerText(text) {
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (err) {
+      throw new Error('The selected file is not a valid Ledger file.');
+    }
+    if (!data || data.format !== 'Guided Invoice Generator Ledger' || !data.localStorage || !data.sidebarState || !data.runtimeState) {
+      throw new Error('The selected file is not a compatible Guided Invoice Generator Ledger.');
+    }
+    return data;
+  }
+
+  function applyLedgerPackage(data, sourceName = '') {
+    restoringLedger = true;
+    try {
+      Object.entries(data.localStorage).forEach(([key, value]) => localStorage.setItem(key, value));
+
+      Object.entries(data.sidebarState).forEach(([id, value]) => {
+        const el = document.getElementById(id);
+        if (!el || el.type === 'file') return;
+        if (el.type === 'checkbox' || el.type === 'radio') el.checked = !!value;
+        else el.value = value ?? '';
+      });
+
+      const rt = data.runtimeState;
+      selectedDates = Array.isArray(rt.selectedDates) ? [...rt.selectedDates] : [];
+      dateCustomData = rt.dateCustomData || {};
+      additionalItems = Array.isArray(rt.additionalItems) ? [...rt.additionalItems] : [];
+      currentYear = rt.currentYear;
+      currentMonth = rt.currentMonth;
+      currentWizStep = rt.currentWizStep || 1;
+      hasLabor = rt.hasLabor !== false;
+      hasSales = rt.hasSales !== false;
+      userHasInteractedWithItems = !!rt.userHasInteractedWithItems;
+      logoBase64 = rt.logoBase64 || localStorage.getItem('invoice_logo_b64') || '';
+      qrBase64 = rt.qrBase64 || localStorage.getItem('invoice_qr_b64') || '';
+      paymentButtonImageBase64 = rt.paymentButtonImageBase64 || localStorage.getItem('invoice_payment_button_b64') || '';
+
+      invoiceHistory = JSON.parse(localStorage.getItem('invoice_history') || '{}');
+      clients = JSON.parse(localStorage.getItem('invoice_clients') || '{}');
+      persistentChips = JSON.parse(localStorage.getItem('global_chip_palette') || '[]');
+      reminderThresholdDays = parseInt(localStorage.getItem('reminder_threshold_days') || '7', 10);
+
+      localStorage.setItem('invoice_logo_b64', logoBase64);
+      localStorage.setItem('invoice_qr_b64', qrBase64);
+      if (paymentButtonImageBase64) localStorage.setItem('invoice_payment_button_b64', paymentButtonImageBase64);
+      else localStorage.removeItem('invoice_payment_button_b64');
+
+      const ledgerAddress = sourceName || localStorage.getItem('invoice_ledger_address') || '';
+      document.getElementById('inputLedgerAddress').value = ledgerAddress;
+      if (ledgerAddress) localStorage.setItem('invoice_ledger_address', ledgerAddress);
+      document.getElementById('inputReminderDays').value = reminderThresholdDays;
+
+      populateClientSelects();
+      populateHistorySelects();
+      updateBizDatalist();
+      toggleConversionUI();
+      toggleHeaderMode();
+      renderCalendar();
+      renderAdditionalItemsUI();
+      renderPersistentChips();
+      renderPaymentButtonImagePreview();
+      updateInvoice();
+      ledgerDirty = false;
+    } finally {
+      restoringLedger = false;
+    }
+  }
+
+  async function saveLedgerFile() {
+    const addressInput = document.getElementById('inputLedgerAddress');
+    const fileName = normalizeLedgerFileName(addressInput.value);
+    addressInput.value = fileName;
+    saveLedgerAddressSetting(fileName);
+
+    const textData = JSON.stringify(buildLedgerPackage(), null, 2);
+
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: fileName,
+          types: [{ description: 'Guided Invoice Ledger', accept: { 'application/json': ['.ledger'] } }]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(textData);
+        await writable.close();
+        ledgerFileHandle = handle;
+        ledgerDirty = false;
+        showAppToast(`Ledger saved: ${handle.name || fileName}`);
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        console.warn('Ledger file picker unavailable; using download fallback.', err);
+      }
+    }
+
+    const blob = new Blob([textData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    ledgerDirty = false;
+    showAppToast(`Ledger downloaded: ${fileName}`);
+  }
+
+  async function readLedgerFile(file, handle = null) {
+    const data = parseLedgerText(await file.text());
+    const sourceName = file.name || '';
+    applyLedgerPackage(data, sourceName);
+    ledgerFileHandle = handle;
+    ledgerDirty = false;
+    showAppToast(`Ledger loaded: ${sourceName || 'selected file'}`);
+  }
+
+  async function loadLedgerFile() {
+    if (window.showOpenFilePicker) {
+      try {
+        const [handle] = await window.showOpenFilePicker({
+          multiple: false,
+          types: [{ description: 'Guided Invoice Ledger', accept: { 'application/json': ['.ledger'] } }]
+        });
+        const file = await handle.getFile();
+        await readLedgerFile(file, handle);
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        console.warn('Ledger file picker unavailable; using file input fallback.', err);
+      }
+    }
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.ledger,application/json';
+    input.style.display = 'none';
+    input.onchange = async () => {
+      const file = input.files && input.files[0];
+      input.remove();
+      if (!file) return;
+      try {
+        await readLedgerFile(file);
+      } catch (err) {
+        alert(err.message || 'Unable to load the Ledger file.');
+      }
+    };
+    document.body.appendChild(input);
+    input.click();
+  }
+
+  window.addEventListener('beforeunload', function(event) {
+    if (!appUnlocked || !ledgerDirty) return;
+    event.preventDefault();
+    event.returnValue = '';
+  });
+
   function currencyPrefix(curr) {
     const c = (curr || "$").trim() || "$";
     return c.length > 1 ? c + " " : c;
@@ -1101,15 +1503,15 @@ Best regards,
     renderAdditionalItemsUI();
     renderPersistentChips();
     initResizer();
+    renderPaymentButtonImagePreview();
+    const ledgerAddressInput = document.getElementById('inputLedgerAddress');
+    if (ledgerAddressInput) ledgerAddressInput.value = localStorage.getItem('invoice_ledger_address') || '';
     updateInvoice();
+    ledgerDirty = false;
 
     window.addEventListener('mouseup', handleGlobalMouseUp);
 
-    openWizard(1);
-
-    setTimeout(() => {
-      checkOverdueInvoices(false);
-    }, 600);
+    initSecurityGate();
   };
 
   function initResizer() {
@@ -1407,8 +1809,7 @@ Best regards,
       clientEmail: document.getElementById("inputClientEmail").value,
       clientAddr: document.getElementById("inputClientAddr").value,
       paypalUrl: document.getElementById("inputPaypalUrl").value,
-      interacUrl: document.getElementById("inputInteracUrl").value,
-      customHtmlLink: document.getElementById("inputCustomHtmlLink").value
+      paymentButtonAddress: document.getElementById("inputPaymentButtonAddress").value
     };
 
     currentWizStep = step;
@@ -1444,8 +1845,7 @@ Best regards,
       clientEmail: document.getElementById("inputClientEmail").value,
       clientAddr: document.getElementById("inputClientAddr").value,
       paypalUrl: document.getElementById("inputPaypalUrl").value,
-      interacUrl: document.getElementById("inputInteracUrl").value,
-      customHtmlLink: document.getElementById("inputCustomHtmlLink").value
+      paymentButtonAddress: document.getElementById("inputPaymentButtonAddress").value
     };
 
     document.getElementById("inputDocType").value = initial.docType;
@@ -1476,8 +1876,7 @@ Best regards,
     document.getElementById("inputClientAddr").value = finalClientAddr;
 
     document.getElementById("inputPaypalUrl").value = initial.paypalUrl;
-    document.getElementById("inputInteracUrl").value = initial.interacUrl;
-    document.getElementById("inputCustomHtmlLink").value = initial.customHtmlLink;
+    document.getElementById("inputPaymentButtonAddress").value = initial.paymentButtonAddress;
 
     if (hasLabor) {
       document.getElementById("inputDefaultDesc").value = document.getElementById("wizLaborDesc").value;
@@ -1738,7 +2137,7 @@ Best regards,
     document.getElementById("inputIsPaid").checked = false;
     document.getElementById("dispPaidStamp").style.display = "none";
     document.getElementById("inputPaypalUrl").value = "";
-    document.getElementById("inputInteracUrl").value = "";
+    document.getElementById("inputPaymentButtonAddress").value = "";
     document.getElementById("inputCustomHtmlLink").value = "";
     document.getElementById("inputEInvoiceMode").checked = false;
     document.getElementById("inputEnableConversion").checked = false;
@@ -1787,7 +2186,8 @@ Best regards,
       emailSubject: document.getElementById("inputEmailSubject") ? document.getElementById("inputEmailSubject").value : "",
       emailBody: document.getElementById("inputEmailBody") ? document.getElementById("inputEmailBody").value : "",
       paypalUrl: document.getElementById("inputPaypalUrl").value,
-      interacUrl: document.getElementById("inputInteracUrl").value,
+      paymentButtonImage: paymentButtonImageBase64,
+      paymentButtonAddress: document.getElementById("inputPaymentButtonAddress").value,
       customHtmlLink: document.getElementById("inputCustomHtmlLink").value,
       eInvoiceMode: document.getElementById("inputEInvoiceMode").checked,
       isPaid: document.getElementById("inputIsPaid").checked
@@ -1850,8 +2250,12 @@ Best regards,
     if (item.emailBody && document.getElementById("inputEmailBody")) document.getElementById("inputEmailBody").value = item.emailBody;
 
     document.getElementById("inputPaypalUrl").value = item.paypalUrl || "";
-    document.getElementById("inputInteracUrl").value = item.interacUrl || "";
+    paymentButtonImageBase64 = item.paymentButtonImage || "";
+    if (paymentButtonImageBase64) localStorage.setItem('invoice_payment_button_b64', paymentButtonImageBase64);
+    else localStorage.removeItem('invoice_payment_button_b64');
+    document.getElementById("inputPaymentButtonAddress").value = item.paymentButtonAddress || "";
     document.getElementById("inputCustomHtmlLink").value = item.customHtmlLink || "";
+    renderPaymentButtonImagePreview();
     document.getElementById("inputEInvoiceMode").checked = !!item.eInvoiceMode;
 
     document.getElementById("inputIsPaid").checked = item.isPaid || false;
@@ -2321,6 +2725,7 @@ Best regards,
   }
 
   function updateInvoice() {
+    if (appUnlocked && !restoringLedger) ledgerDirty = true;
     const docType = document.getElementById("inputDocType").value || "Invoice";
     document.getElementById("dispDocTypeHeader").innerText = docType;
     document.getElementById("labelInvNum").innerText = `${docType} #`;
@@ -2508,7 +2913,7 @@ Best regards,
     }
 
     const paypalUrl = document.getElementById("inputPaypalUrl").value.trim();
-    const interacUrl = document.getElementById("inputInteracUrl").value.trim();
+    const paymentButtonAddress = document.getElementById("inputPaymentButtonAddress").value.trim();
     const customHtml = document.getElementById("inputCustomHtmlLink").value.trim();
     const blockPayIcons = document.getElementById("blockPaymentIcons");
     const buttonsContainer = document.getElementById("dispPaymentButtonsContainer");
@@ -2530,9 +2935,9 @@ Best regards,
       hasButtons = true;
     }
 
-    if (interacUrl) {
-      const formattedInterac = interacUrl.replace(/{amount}/g, grandTotal.toFixed(2));
-      buttonsContainer.innerHTML += `<a href="${escapeAttr(formattedInterac)}" target="_blank" class="payment-btn payment-btn-interac">Pay via Interac / Direct</a>`;
+    if (paymentButtonImageBase64 && paymentButtonAddress) {
+      const formattedPaymentAddress = normalizePaymentLink(paymentButtonAddress.replace(/{amount}/g, grandTotal.toFixed(2)));
+      buttonsContainer.innerHTML += `<a href="${escapeAttr(formattedPaymentAddress)}" target="_blank" rel="noopener noreferrer" class="payment-btn payment-btn-image"><img src="${escapeAttr(paymentButtonImageBase64)}" alt="Payment Link"></a>`;
       hasButtons = true;
     }
 
@@ -2589,10 +2994,10 @@ Best regards,
 
     let payLinksText = "";
     const paypalUrl = document.getElementById("inputPaypalUrl").value.trim().replace(/{amount}/g, grandTotalVal);
-    const interacUrl = document.getElementById("inputInteracUrl").value.trim().replace(/{amount}/g, grandTotalVal);
+    const paymentButtonAddress = document.getElementById("inputPaymentButtonAddress").value.trim().replace(/{amount}/g, grandTotalVal);
 
     if (paypalUrl) payLinksText += `Pay with PayPal: ${paypalUrl}\n`;
-    if (interacUrl) payLinksText += `Pay via Interac/Direct: ${interacUrl}\n`;
+    if (paymentButtonAddress) payLinksText += `Payment Link: ${normalizePaymentLink(paymentButtonAddress)}\n`;
 
     subject = subject.replace(/{docType}/g, docType)
       .replace(/{invNum}/g, invNum)
