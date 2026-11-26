@@ -501,6 +501,7 @@
   
   <div class="sidebar no-print" id="sidebarPanel">
     <button class="btn btn-wizard-launch" onclick="openWizard(1)">Run Setup Wizard</button>
+    <button id="recurringDueBanner" class="btn btn-warning" style="display:none; width:100%; margin-bottom:12px;" onclick="openRecurringModal(false)"></button>
 
     <details class="sidebar-section">
       <summary>1. Saved Invoices & Payment Status</summary>
@@ -549,6 +550,8 @@
           </div>
         </div>
 
+        <button class="btn btn-secondary" style="width:100%; margin-bottom:8px;" onclick="openRecurringModal(true)">Schedule Invoice / Quote Email</button>
+        <button class="btn btn-primary" id="recurringManageButton" style="width:100%; margin-bottom:12px;" onclick="openRecurringModal(false)">Manage Scheduled Emails</button>
         <div class="row-3">
           <div class="form-group">
             <label>Currency</label>
@@ -1055,6 +1058,40 @@ Best regards,
   </div>
 </div>
 
+<div class="modal-overlay no-print" id="recurringModal" style="display:none;">
+  <div class="modal-card" style="width:580px; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px;">
+      <h3 style="margin:0;">Scheduled Invoice / Quote Emails</h3>
+      <button class="btn btn-secondary" onclick="closeRecurringModal()">Close</button>
+    </div>
+    <p style="font-size:0.8rem; color:#64748b; margin:0 0 12px;">Uses your existing Print PDF &amp; Email workflow. Keep the app open and unlocked for automatic opening; missed dates are queued on return. Save/attach the PDF and press Send in your mail client, then confirm here.</p>
+    <button class="btn btn-primary" style="margin-bottom:10px;" onclick="showRecurringForm()">+ Schedule current document</button>
+    <div id="recurringForm" style="display:none; border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:12px;">
+      <div id="recurringTemplateInfo" style="font-size:.85rem; font-weight:bold; margin-bottom:10px;"></div>
+      <div class="row-2">
+        <div class="form-group"><label for="recStart">Start date</label><input type="date" id="recStart" onchange="updateRecurringForm()"></div>
+        <div class="form-group"><label for="recTime">Local send time</label><input type="time" id="recTime" value="09:00" onchange="updateRecurringForm()"></div>
+      </div>
+      <div class="form-group"><label for="recMode">Repeat</label><select id="recMode" onchange="updateRecurringForm()">
+        <option value="once">Once only</option><option value="days">Every X days</option><option value="weeks">Every X weeks, on selected weekday</option><option value="monthday" selected>Day of month</option><option value="nth">Nth weekday of month</option><option value="lastday">Last day of month</option>
+      </select></div>
+      <div class="row-2">
+        <div class="form-group" id="recIntervalGroup"><label id="recIntervalLabel" for="recInterval">Every X months</label><input type="number" id="recInterval" min="1" max="3650" step="1" value="1" oninput="updateRecurringForm()"></div>
+        <div class="form-group" id="recDayGroup"><label for="recDay">Day (1–31)</label><input type="number" id="recDay" min="1" max="31" step="1" value="1" oninput="updateRecurringForm()"></div>
+        <div class="form-group" id="recOrdinalGroup"><label for="recOrdinal">Which week?</label><select id="recOrdinal" onchange="updateRecurringForm()"><option value="1">First</option><option value="2">Second</option><option value="3">Third</option><option value="4">Fourth</option><option value="5">Fifth (if present)</option><option value="-1">Last</option></select></div>
+        <div class="form-group" id="recWeekdayGroup"><label for="recWeekday">Weekday</label><select id="recWeekday" onchange="updateRecurringForm()"><option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option></select></div>
+      </div>
+      <div class="form-group"><label for="recEnd">End date (optional)</label><input type="date" id="recEnd" onchange="updateRecurringForm()"></div>
+      <label style="display:flex; gap:8px; font-size:.82rem; margin-bottom:10px;"><input type="checkbox" id="recAuto" checked> Automatically open Print PDF &amp; Email when due, if the app is idle and visible</label>
+      <label style="display:flex; gap:8px; font-size:.82rem; margin-bottom:10px;"><input type="checkbox" id="recShift" checked> Shift dated labor entries with each new invoice date</label>
+      <p id="recNextPreview" style="font-size:.82rem; margin:0 0 10px; color:#334155;"></p>
+      <div class="row-2"><button class="btn btn-success" onclick="saveRecurringSchedule()">Save Schedule</button><button class="btn btn-secondary" onclick="hideRecurringForm()">Cancel</button></div>
+    </div>
+    <h4 style="margin:8px 0;">Due / Awaiting Send Confirmation</h4><div id="recurringDueList"></div>
+    <h4 style="margin:12px 0 8px;">Saved Schedules</h4><div id="recurringScheduleList"></div>
+  </div>
+</div>
+
 <div class="modal-overlay no-print" id="exportCsvModal" style="display:none;">
   <div class="modal-card" style="width: 460px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
@@ -1257,6 +1294,7 @@ Best regards,
     confirm.value = '';
     startLedgerReminderTimer();
     openWizard(1);
+    startRecurringTimer();
     setTimeout(() => {
       checkOverdueInvoices(false);
     }, 600);
@@ -1396,6 +1434,8 @@ Best regards,
     } finally {
       restoringLedger = false;
     }
+    refreshRecurringUI();
+    if (appUnlocked) checkRecurringSchedules(false);
   }
 
   async function saveLedgerFile() {
@@ -1713,7 +1753,7 @@ Best regards,
         const gross = q * p;
         const lineTotal = gross - (gross * (d / 100));
         subtotal += lineTotal;
-        if (item.taxable) totalTaxableSub += lineTotal;
+        if (item.taxable !== false) totalTaxableSub += lineTotal;
       });
     }
 
@@ -2149,10 +2189,8 @@ Best regards,
     updateInvoice();
   }
 
-  function saveCurrentInvoice(showAlert = false) {
+  function captureCurrentInvoice() {
     const invNum = document.getElementById("inputInvNum").value.trim();
-    if (!invNum) return;
-
     const data = {
       docType: document.getElementById("inputDocType").value,
       dateFormat: document.getElementById("inputDateFormat").value,
@@ -2193,7 +2231,15 @@ Best regards,
       isPaid: document.getElementById("inputIsPaid").checked
     };
 
-    invoiceHistory[invNum] = data;
+    return JSON.parse(JSON.stringify(data));
+  }
+
+  function saveCurrentInvoice(showAlert = false) {
+    const data = captureCurrentInvoice();
+    const invNum = data.invNum;
+    if (!invNum) return;
+    // Preserve scheduled occurrence metadata and branding on subsequent edits.
+    invoiceHistory[invNum] = {...invoiceHistory[invNum], ...data};
     localStorage.setItem("invoice_history", JSON.stringify(invoiceHistory));
     populateHistorySelects();
 
@@ -2218,7 +2264,14 @@ Best regards,
     const num = document.getElementById("historySelect").value;
     if (!num || !invoiceHistory[num]) return;
 
-    const item = invoiceHistory[num];
+    applyInvoiceData(invoiceHistory[num]);
+  }
+
+  function applyInvoiceData(source, persistPaymentImage = true) {
+    const item = JSON.parse(JSON.stringify(source));
+    if (Object.hasOwn(item, 'logoImage')) logoBase64 = item.logoImage || '';
+    if (Object.hasOwn(item, 'qrImage')) qrBase64 = item.qrImage || '';
+    document.getElementById('dispLogo').src = logoBase64 || '';
     if (item.docType) document.getElementById("inputDocType").value = item.docType;
     if (item.dateFormat) document.getElementById("inputDateFormat").value = item.dateFormat;
     document.getElementById("inputInvNum").value = item.invNum;
@@ -2243,16 +2296,18 @@ Best regards,
     if (item.headerFont) document.getElementById("headerFont").value = item.headerFont;
     if (item.headerFontSize) document.getElementById("headerFontSize").value = item.headerFontSize;
     if (item.headerColor) document.getElementById("headerColor").value = item.headerColor;
-    if (item.senderName) document.getElementById("inputSenderName").value = item.senderName;
-    if (item.paymentInfo) document.getElementById("inputPaymentInfo").value = item.paymentInfo;
-    if (item.yourAddress) document.getElementById("inputYourAddress").value = item.yourAddress;
-    if (item.emailSubject && document.getElementById("inputEmailSubject")) document.getElementById("inputEmailSubject").value = item.emailSubject;
-    if (item.emailBody && document.getElementById("inputEmailBody")) document.getElementById("inputEmailBody").value = item.emailBody;
+    if (item.senderName != null) document.getElementById("inputSenderName").value = item.senderName;
+    if (item.paymentInfo != null) document.getElementById("inputPaymentInfo").value = item.paymentInfo;
+    if (item.yourAddress != null) document.getElementById("inputYourAddress").value = item.yourAddress;
+    if (item.emailSubject != null) document.getElementById("inputEmailSubject").value = item.emailSubject;
+    if (item.emailBody != null) document.getElementById("inputEmailBody").value = item.emailBody;
 
     document.getElementById("inputPaypalUrl").value = item.paypalUrl || "";
     paymentButtonImageBase64 = item.paymentButtonImage || "";
-    if (paymentButtonImageBase64) localStorage.setItem('invoice_payment_button_b64', paymentButtonImageBase64);
-    else localStorage.removeItem('invoice_payment_button_b64');
+    if (persistPaymentImage) {
+      if (paymentButtonImageBase64) localStorage.setItem('invoice_payment_button_b64', paymentButtonImageBase64);
+      else localStorage.removeItem('invoice_payment_button_b64');
+    }
     document.getElementById("inputPaymentButtonAddress").value = item.paymentButtonAddress || "";
     document.getElementById("inputCustomHtmlLink").value = item.customHtmlLink || "";
     renderPaymentButtonImagePreview();
@@ -2844,7 +2899,7 @@ Best regards,
         rowHtml += `<td class="col-tax">${item.taxable && taxRate > 0 ? (currencyPrefix(currency) + lineTaxAmt.toFixed(2)) : ''}</td>`;
       }
 
-      rowHtml += `<td class="col-total">${currencyPrefix(currency)}${lineTotal.toFixed(2)}</td></tr>`;
+      rowHtml += `<td class="col-total">${currencyPrefix(currency)}${(lineTotal + lineTaxAmt).toFixed(2)}</td></tr>`;
       tableBody.innerHTML += rowHtml;
     });
 
@@ -2949,6 +3004,260 @@ Best regards,
     blockPayIcons.style.display = hasButtons ? "block" : "none";
   }
 
+  // Recurrence rules use local calendar dates, not fixed 24-hour intervals.
+  const recurringKey = 'invoice_recurring_schedules_v1';
+  let recurringTimer = null, recurringBusy = false, recurringEditing = null;
+  let recurringLastInteraction = 0, recurringLastAttempt = 0;
+  const recEl = id => document.getElementById(id);
+  const recCopy = x => JSON.parse(JSON.stringify(x));
+  function recRead() { return JSON.parse(localStorage.getItem(recurringKey) || '[]'); }
+  function recWrite(list) { localStorage.setItem(recurringKey, JSON.stringify(list)); ledgerDirty = true; }
+  function recDate(key, time = '12:00') {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(key || '') || !/^\d{2}:\d{2}$/.test(time || '')) return new Date(NaN);
+    const [y,m,d] = key.split('-').map(Number), [h,min] = time.split(':').map(Number);
+    return new Date(y,m-1,d,h,min,0,0);
+  }
+  function recDateKey(date) { return formatDateObj(date,'YYYY-MM-DD'); }
+  function recDayNumber(date) { return Date.UTC(date.getFullYear(),date.getMonth(),date.getDate())/86400000; }
+  function recAddDays(date,n) { const d = new Date(date); d.setDate(d.getDate()+n); return d; }
+  function recDisplay(ts) { return ts == null ? 'No further dates' : new Date(ts).toLocaleString([], {dateStyle:'medium', timeStyle:'short'}); }
+  function recNext(rule, after) {
+    const start = recDate(rule.start, rule.time), end = rule.end ? recDate(rule.end,'23:59') : null;
+    if (!Number.isFinite(+start) || (end && !Number.isFinite(+end))) return null;
+    const interval = Number(rule.interval);
+    if (!Number.isInteger(interval) || interval < 1 || interval > 3650) return null;
+    const lower = Math.max(+start, after+1);
+    const valid = d => +d >= lower && (!end || +d <= +end);
+    if (rule.mode === 'once') return valid(start) ? +start : null;
+    if (rule.mode === 'days' || rule.mode === 'weeks') {
+      const base = rule.mode === 'weeks' ? recAddDays(start,(rule.weekday-start.getDay()+7)%7) : start;
+      const step = interval * (rule.mode === 'weeks' ? 7 : 1);
+      let k = Math.max(0, Math.floor((recDayNumber(new Date(lower))-recDayNumber(base))/step));
+      let d = recAddDays(base,k*step);
+      if (+d < lower) d = recAddDays(base,++k*step);
+      return valid(d) ? +d : null;
+    }
+    const lowDate = new Date(lower);
+    const months = (lowDate.getFullYear()-start.getFullYear())*12 + lowDate.getMonth()-start.getMonth();
+    const [h,min] = rule.time.split(':').map(Number);
+    let k = Math.max(0,Math.floor(months/interval));
+    for (let i=0;i<4800;i++,k++) {
+      const first = new Date(start.getFullYear(),start.getMonth()+k*interval,1,h,min);
+      if (!Number.isFinite(+first) || (end && +first > +end)) return null;
+      const last = new Date(first.getFullYear(),first.getMonth()+1,0,h,min);
+      let day;
+      if (rule.mode === 'lastday') day = last.getDate();
+      else if (rule.mode === 'monthday') day = Math.min(rule.day,last.getDate());
+      else if (rule.mode === 'nth') {
+        day = rule.ordinal === -1 ? last.getDate()-(last.getDay()-rule.weekday+7)%7 : 1+(rule.weekday-first.getDay()+7)%7+7*(rule.ordinal-1);
+        if (day > last.getDate()) continue;
+      } else return null;
+      const d = new Date(first.getFullYear(),first.getMonth(),day,h,min);
+      if (valid(d)) return +d;
+      if (end && +d > +end) return null;
+    }
+    return null;
+  }
+  function recRuleFromForm() {
+    return {start:recEl('recStart').value,time:recEl('recTime').value,mode:recEl('recMode').value,
+      interval:recEl('recMode').value==='once'?1:Number(recEl('recInterval').value),day:Number(recEl('recDay').value),
+      weekday:Number(recEl('recWeekday').value),ordinal:Number(recEl('recOrdinal').value),end:recEl('recEnd').value};
+  }
+  function recValidate(rule) {
+    return !!rule.start && !!rule.time && Number.isInteger(rule.interval) && rule.interval>=1 && rule.interval<=3650 &&
+      (rule.mode!=='monthday' || (Number.isInteger(rule.day) && rule.day>=1 && rule.day<=31)) && (!rule.end || rule.end>=rule.start);
+  }
+  function updateRecurringForm() {
+    const r = recRuleFromForm();
+    recEl('recIntervalGroup').style.display=r.mode==='once'?'none':'';
+    recEl('recIntervalLabel').textContent='Every X '+(r.mode==='days'?'days':r.mode==='weeks'?'weeks':'months');
+    recEl('recDayGroup').style.display=r.mode==='monthday'?'':'none';
+    recEl('recOrdinalGroup').style.display=r.mode==='nth'?'':'none';
+    recEl('recWeekdayGroup').style.display=['nth','weeks'].includes(r.mode)?'':'none';
+    const next = recValidate(r) ? recNext(r, Date.now()-1) : null;
+    recEl('recNextPreview').textContent=(next==null?'No future occurrence with these settings.':'Next: '+recDisplay(next))+(r.mode==='monthday'?' • Short months use their last day.':'');
+  }
+  function recTemplate() {
+    return {...captureCurrentInvoice(),logoImage:logoBase64,qrImage:qrBase64,isPaid:false};
+  }
+  function recTemplateLabel(t) { return `${t.docType || 'Invoice'} · ${t.clientName || 'Unnamed client'} · ${currencyPrefix(t.currency)}${calculateDetailedInvoiceTotal(t).grandTotal.toFixed(2)}`; }
+  function openRecurringModal(create=false) {
+    if (!appUnlocked || recurringBusy) return;
+    recEl('recurringModal').style.display='flex';
+    if (create) showRecurringForm(); else hideRecurringForm();
+    checkRecurringSchedules(false); refreshRecurringUI();
+  }
+  function closeRecurringModal() { recEl('recurringModal').style.display='none'; hideRecurringForm(); }
+  function hideRecurringForm() { recEl('recurringForm').style.display='none'; recurringEditing=null; }
+  function showRecurringForm(id=null) {
+    const existing=id?recRead().find(s=>s.id===id):null;
+    recurringEditing=existing?.id || null;
+    const t=existing?.template || recTemplate(), today=new Date();
+    recEl('recurringTemplateInfo').textContent=(existing?'Editing: ':'From current document: ')+recTemplateLabel(t);
+    const r=existing?.rule || {start:recDateKey(today),time:'09:00',mode:'monthday',interval:1,day:today.getDate(),weekday:today.getDay(),ordinal:1,end:''};
+    for (const [id,key] of [['recStart','start'],['recTime','time'],['recMode','mode'],['recInterval','interval'],['recDay','day'],['recWeekday','weekday'],['recOrdinal','ordinal'],['recEnd','end']]) recEl(id).value=r[key];
+    recEl('recAuto').checked=existing?!!existing.auto:true;
+    recEl('recShift').checked=existing?!!existing.shift:true;
+    recEl('recurringForm').style.display='block'; updateRecurringForm();
+  }
+  function saveRecurringSchedule() {
+    const rule=recRuleFromForm();
+    if (!recValidate(rule)) return alert('Enter a valid date, time and repeat interval.');
+    const list=recRead(), existing=list.find(s=>s.id===recurringEditing), template=existing?.template || recTemplate();
+    if (!/^[^\s@]+@[^\s@]+$/.test(template.clientEmail.trim()) || !template.clientName.trim()) return alert('Enter a client name and valid email on the current document first.');
+    if (!existing && !(calculateDetailedInvoiceTotal(template).grandTotal>0)) return alert('Enter the billable services or items first.');
+    const next=existing && JSON.stringify(existing.rule)===JSON.stringify(rule)?existing.next:recNext(rule,Date.now()-1);
+    if (next===null && !existing) return alert('Choose a future send date.');
+    const opts={rule,next,auto:recEl('recAuto').checked,shift:recEl('recShift').checked};
+    if (existing) Object.assign(existing,opts);
+    else list.push({...opts,id:globalThis.crypto?.randomUUID?.() || Date.now()+'-'+Math.random().toString(36).slice(2),template,paused:false,pending:[],lastSent:null});
+    try {recWrite(list);} catch(e) {return alert('Schedule could not be saved: '+e.message);}
+    hideRecurringForm(); refreshRecurringUI(); showAppToast('Email schedule saved.');
+  }
+  function recRuleLabel(r) {
+    const day=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][r.weekday];
+    const ordinal={'1':'first','2':'second','3':'third','4':'fourth','5':'fifth','-1':'last'}[r.ordinal];
+    if(r.mode==='once') return 'Once';
+    if(r.mode==='days') return `Every ${r.interval} day(s)`;
+    if(r.mode==='weeks') return `Every ${r.interval} week(s) on ${day}`;
+    return `Every ${r.interval} month(s), ${r.mode==='monthday'?'day '+r.day:r.mode==='lastday'?'last day':ordinal+' '+day}`;
+  }
+  function recButton(parent,label,fn,style='secondary') {
+    const b=document.createElement('button'); b.type='button'; b.className='btn btn-'+style; b.style.cssText='font-size:.76rem; padding:7px 9px;'; b.textContent=label; b.onclick=fn; parent.append(b);
+  }
+  function recCard(parent,title,details) {
+    const card=document.createElement('div'); card.className='item-block';
+    const heading=document.createElement('strong'); heading.style.fontSize='.9rem'; heading.textContent=title; card.append(heading);
+    const p=document.createElement('p'); p.style.cssText='font-size:.8rem; margin:5px 0 8px; color:#475569; white-space:pre-line;'; p.textContent=details; card.append(p);
+    const actions=document.createElement('div'); actions.style.cssText='display:flex; flex-wrap:wrap; gap:6px;'; card.append(actions); parent.append(card); return actions;
+  }
+  function refreshRecurringUI(list=recRead()) {
+    const due=list.flatMap(s=>s.pending.map(p=>({s,p}))).sort((a,b)=>a.p.at-b.p.at);
+    const banner=recEl('recurringDueBanner'); banner.style.display=due.length?'inline-flex':'none'; banner.textContent=`Scheduled emails due: ${due.length} — Open queue`;
+    recEl('recurringManageButton').textContent=`Manage Scheduled Emails (${list.length}${due.length?', '+due.length+' due':''})`;
+    if(recEl('recurringModal').style.display==='none') return;
+    const pending=recEl('recurringDueList'), saved=recEl('recurringScheduleList'); pending.replaceChildren(); saved.replaceChildren();
+    if(!due.length) pending.textContent='No emails waiting.';
+    if(!list.length) saved.textContent='No schedules yet.';
+    for(const {s,p} of due) {
+      const actions=recCard(pending,recTemplateLabel(p.template || s.template),`Due: ${recDisplay(p.at)}${p.num?' · #'+p.num:''}\n${p.attempted?'Workflow opened / attempted — confirm only after sending.':'Waiting to open email workflow.'}`);
+      recButton(actions,p.attempted?'Open again':'Print PDF & Email',()=>openRecurringOccurrence(s.id,p.at),'primary');
+      if(p.num) recButton(actions,'Confirm sent',()=>finishRecurringOccurrence(s.id,p.at,true),'success');
+      recButton(actions,'Skip',()=>finishRecurringOccurrence(s.id,p.at,false),'secondary');
+    }
+    for(const s of list) {
+      const actions=recCard(saved,recTemplateLabel(s.template),`${recRuleLabel(s.rule)} · ${s.rule.time}\n${s.paused?'Paused': 'Next: '+recDisplay(s.next)}${s.lastSent?'\nLast confirmed sent: '+recDisplay(s.lastSent):''}`);
+      recButton(actions,'Edit timing',()=>showRecurringForm(s.id));
+      recButton(actions,'Replace template',()=>replaceRecurringTemplate(s.id));
+      recButton(actions,s.paused?'Resume':'Pause',()=>toggleRecurringSchedule(s.id));
+      recButton(actions,'Delete',()=>deleteRecurringSchedule(s.id),'danger');
+    }
+  }
+  function replaceRecurringTemplate(id) {
+    const list=recRead(),s=list.find(x=>x.id===id),t=recTemplate(); if(!s)return;
+    if(!/^[^\s@]+@[^\s@]+$/.test(t.clientEmail.trim()) || !t.clientName.trim() || !(calculateDetailedInvoiceTotal(t).grandTotal>0))return alert('Prepare a valid current document first.');
+    if(!confirm('Replace future occurrences with the current document? Existing due invoices retain their original details.'))return;
+    s.template=t; recWrite(list); refreshRecurringUI();
+  }
+  function toggleRecurringSchedule(id) {
+    const list=recRead(),s=list.find(x=>x.id===id); if(!s)return;
+    s.paused=!s.paused; if(!s.paused)s.next=recNext(s.rule,Date.now()-1);
+    recWrite(list); refreshRecurringUI();
+  }
+  function deleteRecurringSchedule(id) {
+    if(!confirm('Delete this schedule and its remaining due queue? Generated invoices stay in history.'))return;
+    recWrite(recRead().filter(s=>s.id!==id)); refreshRecurringUI();
+  }
+  function finishRecurringOccurrence(id,at,sent) {
+    const list=recRead(),s=list.find(x=>x.id===id); if(!s)return;
+    if(!sent && !confirm('Skip this occurrence? Any already-generated invoice will remain in history.'))return;
+    s.pending=s.pending.filter(p=>p.at!==at); if(sent)s.lastSent=Date.now(); recWrite(list); refreshRecurringUI();
+  }
+  function recParseInvoiceDate(t) {
+    const str=t.invDate || '',fmt=t.dateFormat;
+    if(fmt==='YYYY-MM-DD') return recDate(str);
+    const parts=str.split(/[-/]/).map(Number);
+    if(parts.length===3 && parts.every(Number.isFinite)) {
+      let [a,b,y]=parts;if(y<100)y+=2000;
+      return new Date(y,fmt?.startsWith('DD')?b-1:a-1,fmt?.startsWith('DD')?a:b,12);
+    }
+    const d=new Date(str);return d;
+  }
+  function recBuildInvoice(s,p,num) {
+    const t=recCopy(p.template || s.template), date=new Date(p.at), old=recParseInvoiceDate(t);
+    if(s.shift && Number.isFinite(+old)) {
+      const offset=recDayNumber(date)-recDayNumber(old), shifted={};
+      t.selectedDates=(t.selectedDates||[]).map(key=>{
+        const newKey=recDateKey(recAddDays(recDate(key),offset));
+        if(t.dateCustomData?.[key])shifted[newKey]=t.dateCustomData[key]; return newKey;
+      }); t.dateCustomData=shifted;
+    }
+    t.invNum=String(num); t.invDate=formatDateObj(date,t.dateFormat); t.isPaid=false;
+    t.recurringOccurrence={scheduleId:s.id,at:p.at}; return t;
+  }
+  function recIdle() {
+    return appUnlocked && !recurringBusy && !restoringLedger && !document.hidden && document.hasFocus() &&
+      Date.now()-recurringLastInteraction>10000 && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName) &&
+      !Array.from(document.querySelectorAll('.modal-overlay,.wizard-overlay')).some(e=>getComputedStyle(e).display!=='none');
+  }
+  function checkRecurringSchedules(allowAuto=true) {
+    if(!appUnlocked || restoringLedger || recurringBusy)return;
+    const list=recRead(),now=Date.now(); let changed=false;
+    for(const s of list) {
+      if(s.paused)continue;
+      let count=0;
+      while(s.next!=null && s.next<=now && count++<120) {
+        if(!s.pending.some(p=>p.at===s.next))s.pending.push({at:s.next,attempted:false,template:recCopy(s.template),shift:s.shift});
+        s.next=recNext(s.rule,s.next); changed=true;
+      }
+    }
+    if(changed) {
+      try{recWrite(list);}catch(e){showAppToast('Could not save due schedules: '+e.message);return;}
+      showAppToast('Scheduled invoice / quote email due. Open the due queue.');
+    }
+    if(changed || !allowAuto)refreshRecurringUI(list);
+    if(!allowAuto || !recIdle() || Date.now()-recurringLastAttempt<60000)return;
+    const due=list.filter(s=>s.auto&&!s.paused).flatMap(s=>s.pending.filter(p=>!p.attempted).map(p=>({s,p}))).sort((a,b)=>a.p.at-b.p.at)[0];
+    if(due)openRecurringOccurrence(due.s.id,due.p.at);
+  }
+  function startRecurringTimer() {
+    clearInterval(recurringTimer); checkRecurringSchedules(false);
+    recurringTimer=setInterval(()=>checkRecurringSchedules(),15000);
+  }
+  window.addEventListener('focus',()=>{if(appUnlocked)checkRecurringSchedules(false);});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&appUnlocked)checkRecurringSchedules(false);});
+  for(const ev of ['pointerdown','keydown','input'])document.addEventListener(ev,()=>{recurringLastInteraction=Date.now();},true);
+  window.addEventListener('storage',e=>{if(e.key===recurringKey && appUnlocked)refreshRecurringUI();});
+  function openRecurringOccurrence(id,at) {
+    if(!appUnlocked || recurringBusy)return;
+    const list=recRead(),s=list.find(x=>x.id===id),p=s?.pending.find(x=>x.at===at);if(!p)return;
+    const draft=recTemplate(); draft.isPaid=recEl('inputIsPaid').checked;
+    const prior={title:document.title,year:currentYear,month:currentMonth,interacted:userHasInteractedWithItems,history:recEl('historySelect').value};
+    let invoice;
+    try {
+      // Re-read persisted history so retries and other open tabs do not reuse invoice numbers.
+      invoiceHistory={...invoiceHistory,...JSON.parse(localStorage.getItem('invoice_history')||'{}')};
+      const found=Object.values(invoiceHistory).find(i=>i.recurringOccurrence?.scheduleId===id&&i.recurringOccurrence.at===at);
+      if(found)invoice=recCopy(found);
+      else {
+        const currentNum=parseInt(draft.invNum,10)||0;
+        const num=p.num || String(Math.max(getHighestInvoiceNum(),currentNum)+1);
+        if(invoiceHistory[num])throw new Error('Invoice number is already in use.');
+        invoice=recBuildInvoice({...s,shift:p.shift??s.shift},p,num);
+        localStorage.setItem('invoice_last_num',String(Math.max(getHighestInvoiceNum(),Number(num))));
+        invoiceHistory[num]=invoice; localStorage.setItem('invoice_history',JSON.stringify(invoiceHistory));
+      }
+      p.num=invoice.invNum;p.attempted=true;recWrite(list);populateHistorySelects();
+    }catch(e){alert('Could not prepare scheduled invoice: '+e.message);return;}
+    recurringBusy=true;recurringLastAttempt=Date.now();closeRecurringModal();
+    const restore=()=>{
+      currentYear=prior.year;currentMonth=prior.month;applyInvoiceData(draft,false);userHasInteractedWithItems=prior.interacted;
+      recEl('historySelect').value=prior.history;document.title=prior.title;recurringBusy=false;
+      showAppToast('Email workflow opened / attempted. Confirm sent in the scheduled email queue.',8000);refreshRecurringUI();
+    };
+    try {applyInvoiceData(invoice,false); generatePDFAndEmail(restore,true);} catch(e){restore();alert('Could not open scheduled email: '+e.message);}
+  }
+
   function showAppToast(message, duration = 5000) {
     const toast = document.getElementById("appToast");
     if (!toast) return;
@@ -2958,8 +3267,8 @@ Best regards,
     toast._hideTimer = setTimeout(() => toast.classList.remove("show"), duration);
   }
 
-  function generatePDFAndEmail() {
-    saveCurrentInvoice();
+  function generatePDFAndEmail(onHandoff = null, alreadySaved = false) {
+    if (!alreadySaved) saveCurrentInvoice();
 
     const clientEmail = document.getElementById("inputClientEmail").value.trim();
     if (!clientEmail) {
@@ -3025,6 +3334,8 @@ Best regards,
       if (mailtoFired) return;
       mailtoFired = true;
       clearTimeout(fallbackTimer);
+      window.removeEventListener('afterprint', fireMailto);
+      if (typeof onHandoff === 'function') onHandoff();
       window.location.href = mailtoUrl;
     };
 
